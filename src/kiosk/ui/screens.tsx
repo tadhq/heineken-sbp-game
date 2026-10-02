@@ -47,9 +47,15 @@ export function Attract({ t, lite, onStart, onAdmin }: { t: Dict; lite: boolean;
         </div>
       </div>
       <div className="absolute inset-x-0 top-[1530px] flex justify-center">
-        <div className={`btn-primary h-[156px] w-[740px] text-[60px] ${lite ? "" : "motion-safe-only animate-pulse-soft"}`}>
-          {t.tapToStart}
-          {!lite && <span className="motion-safe-only absolute inset-y-0 left-0 w-1/3 animate-shine bg-white/25" aria-hidden />}
+        <div className={`relative ${lite ? "" : "motion-safe-only animate-cta-beat"}`}>
+          {!lite &&
+            ["0s", "-0.8s"].map((delay) => (
+              <span key={delay} className="motion-safe-only absolute inset-0 animate-cta-ring rounded-full bg-cream/45" style={{ animationDelay: delay }} aria-hidden />
+            ))}
+          <div className="btn-primary h-[156px] w-[740px] text-[60px]">
+            {t.tapToStart}
+            {!lite && <span className="motion-safe-only absolute inset-y-0 left-0 w-1/3 animate-shine bg-white/35" aria-hidden />}
+          </div>
         </div>
       </div>
       <ResponsibleFooter text={t.responsible} notice={t.ageNotice} />
