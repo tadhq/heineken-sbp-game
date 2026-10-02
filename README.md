@@ -65,4 +65,4 @@ The e2e suites refuse to run against a non-local database.
 
 ## Brand assets
 
-No official Heineken artwork is included: it is trademarked and must come from the client. Put the approved logo in `public/brand/` and set `NEXT_PUBLIC_BRAND_LOGO=/brand/<file>` before building; until then a plain-text placeholder is shown. Replace the placeholder red-star colour in `src/game/engine/palette.ts` and `tailwind.config.ts` with the brand value.
+Official Heineken artwork (logo, star, responsible-drinking mark, product photos) lives in `public/assets/brand/` and comes from heineken.com. Sources and licence status are in [ASSETS.md](ASSETS.md). **The client must confirm the licence before public use.** To swap any file, keep its name. Effects and sounds are Kenney CC0 (`public/assets/fx`, `public/assets/sfx`).

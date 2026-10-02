@@ -94,9 +94,13 @@ Shake is kept subtle for a large portrait screen viewed up close. That is a judg
 
 ## 4. Heineken visual identity and constraints
 
-- **Colours.** No public brand spec exists. The greens come from heineken.com's live stylesheet (`app.brand2.hnk.css`, fetched 2026-10-01): `#13670b` for headings, `#005d1f`→`#277816` for gradients, `#12a415` as the bright accent. **The red-star hex is UNVERIFIED**; `#e1251b` is a placeholder in `src/game/engine/palette.ts` and `tailwind.config.ts`. **Get the official values from the client's brand team.**
+- **Colours.** No public brand spec exists.
+  - Greens from heineken.com's live stylesheet (`app.brand2.hnk.css`, fetched 2026-10-01): `#13670b`, `#005d1f`→`#277816`, `#12a415`.
+  - Star red **`#E3000F`** is read from Heineken's own logo SVG (`class st0`).
+  - The vivid brand-green radial (`#4FAA33` → `#105D25`) is sampled from heineken.com's gradient image.
+  - Confirm all of these against the client's brand book.
 - **Type.** Heineken Sans/Serif are proprietary to Heineken ([LucasFonts](https://www.lucasfonts.com/custom/heineken)). heineken.com falls back to **PT Sans** (OFL), so this build uses PT Sans plus PT Sans Narrow (bold) for display, self-hosted via `next/font`.
-- **Logo, star, bottle and crate livery** are trademarks ([heineken.com terms](https://www.heineken.com/global/en/terms-and-conditions/)), and no public licensed asset kit was found. The wordmark slot (`BrandMark`) loads `public/brand/logo.svg` if the client provides it and **falls back to plain text, which is not the logo**. All game art is original procedural art in brand colours.
+- **Logo, star and product photography** are trademarked and copyrighted ([heineken.com terms](https://www.heineken.com/global/en/terms-and-conditions/)), and there is no public licensed asset kit. **Update 2026-10-01:** at the project owner's request, the official logo SVG, the star, the "enjoy responsibly" mark and product photos were taken from heineken.com, on the basis that this is a Heineken-commissioned activation. Every file and its source is listed in [ASSETS.md](ASSETS.md), and the client must confirm the licence before public use.
 - **Responsible Marketing Code** (March 2026, [PDF](https://www.theheinekencompany.com/sites/heineken-corp/files/heineken-corp/sustainability-and-responsibility/responsibility/heineken-responsible-marketing-code-final.pdf)):
   - The responsible-drinking line is on every menu screen (§2.3).
   - The art is adult and premium: no mascots or childlike characters (§3.5).
@@ -108,17 +112,14 @@ Shake is kept subtle for a large portrait screen viewed up close. That is a judg
 
 ## 5. Assets and licensing
 
-| Asset | Source | Licence | Use | Optimisation |
-|---|---|---|---|---|
-| All game art (stars, sun, ice, glass, crates, particles, backgrounds) | Original, procedural (`src/game/engine/sprites.ts`, `crate-stacker.ts`) | Project code | Drawn once into offscreen canvases at start-up | 0 bytes to download. Sprites sized to on-screen size. |
-| Menu icons | Same art, exported via `canvas.toDataURL` at runtime | Project code | Instruction and select screens | No files |
-| Sound effects | Parameters for [ZzFX](https://github.com/KilledByAPixel/ZzFX) 1.3.2 | MIT | Rendered to AudioBuffers once on first tap | 1.2 KB library, no audio files |
-| Music | Original step sequencer (`audio.ts`) | Project code | During play; tempo follows the stage | No files |
-| PT Sans, PT Sans Narrow | Google Fonts via `next/font` | SIL OFL 1.1 | UI and canvas text | Self-hosted, Latin subset, 3 weights |
-| App icon (`public/icon.svg`) | Original | Project code | Manifest/favicon | 300 bytes |
-| Heineken logo | **Not included**: client to supply `public/brand/logo.svg` | Trademark | Wordmark slot | n/a |
+The first build used only original procedural art. The project owner judged it too basic and asked for real brand assets, so the asset approach is now:
 
-No third-party images or sounds are shipped. The asset approach was chosen for quality, licence safety, file size and performance together: procedural art costs nothing to download, needs no licence, and decodes instantly.
+- **Official Heineken artwork** from heineken.com: logo, star, "enjoy responsibly" mark, draught glass, bottle and other product photos. These carry the brand. The licence must be confirmed by the client; see the note in ASSETS.md.
+- **Kenney CC0** particle textures and sound effects ([licence](https://kenney.nl/support): public domain, commercial use OK, no attribution required). These replace the procedural particles and the ZzFX synthesis.
+- **PT Sans / PT Sans Narrow** (SIL OFL), heineken.com's own fallback typeface. The proprietary Heineken fonts were not copied.
+- **Procedural code** still draws the crate geometry, the hazard and ice sprites, and the backgrounds, and provides a full fallback if an asset fails to load.
+
+**Optimisation.** Photos were converted to WebP at on-screen size (the original bottle went from 2 MB to 91 KB). Particles were resized to 128 px. In total there are 672 KB of assets, all precached by the service worker. The full per-file record (source, URL, licence, optimisation, use) is in [ASSETS.md](ASSETS.md).
 
 ## 6. Data and backend
 
@@ -153,7 +154,6 @@ Not used:
 
 - `zod`: validation at every trust boundary.
 - `jose`: signed tokens.
-- `zzfx`: SFX synthesis.
 - `@prisma/*` and `pg`: database access.
 - `server-only`: keeps server modules out of the client bundle.
 - Dev only: Tailwind 3.4, Playwright, vitest.

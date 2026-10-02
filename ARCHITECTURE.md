@@ -17,7 +17,7 @@ Stack:
 
 - Next.js 16 (App Router), React 19, TypeScript strict, **Tailwind CSS 3.4.19** compiled by PostCSS (no v4, no CDN).
 - Prisma 7 with the `pg` adapter.
-- zod, jose, zzfx.
+- zod and jose. Sound effects are Kenney CC0 OGG samples, played through Web Audio.
 
 ## Directory map
 
