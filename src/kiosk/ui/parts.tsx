@@ -76,15 +76,16 @@ export function Backdrop({ lite = false }: { lite?: boolean }) {
  * turns behind it; all compositor-only.
  */
 export function ProductHero({ lite = false }: { lite?: boolean }) {
+  // Star is 960 wide (912 tall); its centre sits ~505px from the top, and the packshots sit on that centre.
   return (
-    <div className="relative h-[820px] w-[1080px]">
+    <div className="relative h-[920px] w-[1080px]">
       <div
-        className={`absolute left-1/2 top-[230px] h-[1100px] w-[1100px] rounded-full ${lite ? "-translate-x-1/2 -translate-y-1/2" : "motion-safe-only animate-spin-slow"}`}
+        className={`absolute left-1/2 top-[505px] h-[1100px] w-[1100px] rounded-full ${lite ? "-translate-x-1/2 -translate-y-1/2" : "motion-safe-only animate-spin-slow"}`}
         style={{ background: "repeating-conic-gradient(from 0deg, rgba(255,255,230,0.10) 0deg 7deg, rgba(255,255,230,0) 7deg 20deg)", maskImage: "radial-gradient(circle, black 20%, transparent 68%)", WebkitMaskImage: "radial-gradient(circle, black 20%, transparent 68%)" }}
       />
-      <div className="absolute left-1/2 top-[200px] -translate-x-1/2 -translate-y-1/2" style={{ perspective: 1400 }}>
+      <div className="absolute left-1/2 top-0 -translate-x-1/2" style={{ perspective: 1800 }}>
         <div className={lite ? "" : "motion-safe-only animate-star-spin"} style={{ transformStyle: "preserve-3d" }}>
-          <OfficialStar size={420} style={{ filter: "drop-shadow(0 26px 34px rgba(0,30,10,0.45))" }} />
+          <OfficialStar size={960} className="max-w-none" style={{ filter: "drop-shadow(0 26px 34px rgba(0,30,10,0.45))" }} />
         </div>
       </div>
       {/* eslint-disable-next-line @next/next/no-img-element -- official crate packshot */}
@@ -92,16 +93,16 @@ export function ProductHero({ lite = false }: { lite?: boolean }) {
         src="/assets/brand/crate.webp"
         alt="Heineken krat"
         draggable={false}
-        className="absolute bottom-[0px] left-1/2 w-[500px] -translate-x-[42%]"
-        style={{ filter: "drop-shadow(0 34px 34px rgba(0,25,8,0.55))" }}
+        className="absolute left-[350px] top-[400px] w-[460px]"
+        style={{ filter: "drop-shadow(0 30px 30px rgba(0,25,8,0.55))" }}
       />
       {/* eslint-disable-next-line @next/next/no-img-element -- official bottle packshot */}
       <img
         src="/assets/brand/bottle.webp"
         alt="Heineken Original"
         draggable={false}
-        className="absolute bottom-[-6px] left-[170px] h-[440px] w-auto -rotate-[4deg]"
-        style={{ filter: "drop-shadow(0 30px 30px rgba(0,25,8,0.55))" }}
+        className="absolute left-[275px] top-[380px] h-[370px] w-auto -rotate-[4deg]"
+        style={{ filter: "drop-shadow(0 26px 26px rgba(0,25,8,0.55))" }}
       />
     </div>
   );
