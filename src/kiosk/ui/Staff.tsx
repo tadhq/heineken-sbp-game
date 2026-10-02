@@ -3,7 +3,7 @@ import { dayKey } from "@/lib/time";
 import type { Dict } from "@/lib/i18n";
 import { hasLocalPin, kioskName, lockedFor, pairKiosk, verifyLocalPin } from "../staff";
 import { store, type LedgerEntry } from "../store";
-import { flush, getSyncStatus, kioskToken } from "../sync";
+import { flush, kioskToken, lastSyncAt, refreshConfig } from "../sync";
 import { TARGET } from "../target";
 import { Backdrop } from "./parts";
 
@@ -117,8 +117,10 @@ function StaffDashboard({
   const s = t.staff;
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
-  const [status, setStatus] = useState(getSyncStatus());
-  const [online, setOnline] = useState(() => navigator.onLine);
+  const [lastSync, setLastSync] = useState<number | null>(null);
+  // navigator.onLine is unreliable in Android WebView (stays true in airplane mode), so
+  // "online" here means: the server actually answered recently.
+  const [online, setOnline] = useState<boolean | null>(null);
   const [name, setName] = useState<string | null>(null);
   const [paired, setPaired] = useState(false);
 
@@ -128,8 +130,16 @@ function StaffDashboard({
     setPendingIds(new Set(out.map((o) => o.id)));
     setPaired(!!token);
     setName(n ?? null);
-    setStatus(getSyncStatus());
-    setOnline(navigator.onLine);
+    setLastSync(await lastSyncAt());
+  }, []);
+  useEffect(() => {
+    const probe = () => refreshConfig().then((r) => setOnline(r !== null));
+    const first = setTimeout(probe, 0);
+    const id = setInterval(probe, 10_000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(id);
+    };
   }, []);
   useEffect(() => {
     const first = setTimeout(refresh, 0);
@@ -160,11 +170,13 @@ function StaffDashboard({
         <section className="mt-10 rounded-[36px] bg-ink/55 p-8">
           <div className="flex items-center justify-between">
             <h2 className="font-display text-[48px] font-bold uppercase text-cream">{s.sync}</h2>
-            <span className={`rounded-full px-5 py-1 font-display text-[30px] font-bold ${online ? "bg-bright text-ink" : "bg-star text-cream"}`}>{online ? s.online : s.offlineNow}</span>
+            {online !== null && (
+              <span className={`rounded-full px-5 py-1 font-display text-[30px] font-bold ${online ? "bg-bright text-ink" : "bg-star text-cream"}`}>{online ? s.online : s.offlineNow}</span>
+            )}
           </div>
           <p className="mt-4 font-sans text-[36px] text-cream">{pendingIds.size ? s.pending(pendingIds.size) : s.allSynced}</p>
           <p className="mt-1 font-sans text-[30px] text-cream/75">
-            {s.lastSync}: {status.lastSyncAt ? time(new Date(status.lastSyncAt).toISOString()) : s.never}
+            {s.lastSync}: {lastSync ? time(new Date(lastSync).toISOString()) : s.never}
           </p>
           <div className="mt-6 flex gap-5">
             <button type="button" onClick={() => void flush().then(refresh)} className="h-[100px] flex-1 rounded-full bg-bright font-display text-[40px] font-bold uppercase text-ink active:scale-[0.98]">

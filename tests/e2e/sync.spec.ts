@@ -126,3 +126,24 @@ test("a reused award id is rejected without blocking the rest of the batch", asy
   const n = await withDb(async (cl) => Number((await cl.query('SELECT count(*) FROM "GameSession" WHERE id = $1', [b.id])).rows[0].count));
   expect(n).toBe(0);
 });
+
+test("kiosk pairing from the device: PIN-gated, throttled, token works; CORS only for the app origin", async () => {
+  await resetThrottle();
+  const anon = await request.newContext({ baseURL: BASE, extraHTTPHeaders: { "x-forwarded-for": "10.3.0.8" } });
+  expect((await anon.post("/api/kiosk/pair", { data: { pin: process.env.ADMIN_PIN === "0000" ? "1111" : "0000", name: "x" } })).status()).toBe(401);
+  const ok = await anon.post("/api/kiosk/pair", { data: { pin: process.env.ADMIN_PIN, name: "e2e paired device" } });
+  expect(ok.status()).toBe(200);
+  const { token } = await ok.json();
+  const kiosk = await request.newContext({ baseURL: BASE, extraHTTPHeaders: { authorization: `Bearer ${token}` } });
+  expect((await kiosk.post("/api/kiosk/sync", { data: { sessions: [starSession()] } })).status()).toBe(200);
+
+  const pre = await anon.fetch("/api/kiosk/sync", { method: "OPTIONS", headers: { origin: "https://localhost", "access-control-request-method": "POST" } });
+  expect(pre.status()).toBe(204);
+  expect(pre.headers()["access-control-allow-origin"]).toBe("https://localhost");
+  const evil = await anon.fetch("/api/kiosk/config", { headers: { origin: "https://evil.example" } });
+  expect(evil.headers()["access-control-allow-origin"]).toBeUndefined();
+  // Admin API never gets CORS.
+  const adminPre = await anon.fetch("/api/admin/overview", { headers: { origin: "https://localhost" } });
+  expect(adminPre.headers()["access-control-allow-origin"]).toBeUndefined();
+  await resetThrottle();
+});

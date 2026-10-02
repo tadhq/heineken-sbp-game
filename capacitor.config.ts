@@ -7,8 +7,8 @@ const config: CapacitorConfig = {
   appName: "Heineken Games",
   webDir: ".next-apk",
   android: {
-    // Never load http content into the https app shell.
-    allowMixedContent: false,
+    // Release: https only. Debug builds may talk to a local http API (emulator testing).
+    allowMixedContent: process.env.APK_DEBUG === "1",
     // Remote debugging (chrome://inspect) only in debug builds.
     webContentsDebuggingEnabled: process.env.APK_DEBUG === "1",
   },

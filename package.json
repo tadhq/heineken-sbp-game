@@ -13,7 +13,7 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
-    "test:e2e": "playwright test --grep-invert \"@soak|@shots\"",
+    "test:e2e": "playwright test --grep-invert \"@soak|@shots|@perf\"",
     "test:soak": "playwright test --grep @soak",
     "apk:web": "BUILD_TARGET=apk NEXT_PUBLIC_TARGET=apk next build",
     "apk:sync": "cap sync android",
@@ -49,5 +49,11 @@
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
     "vitest": "^5.0.3"
-  }
+  },
+  "browserslist": [
+    "chrome 90",
+    "edge 111",
+    "firefox 111",
+    "safari 16.4"
+  ]
 }

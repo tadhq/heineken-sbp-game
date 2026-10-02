@@ -48,7 +48,8 @@ export class CrateStacker implements Game<CrateResult> {
   private dropV = 0;
   private debris: Debris[] = Array.from({ length: 6 }, () => ({ on: false, x: 0, y: 0, w: 0, vx: 0, vy: 0, rot: 0, vrot: 0, shade: 0, u0: 0, u1: 1 }));
   /** Official crate packshot when loaded; procedural crate otherwise. */
-  private img: HTMLImageElement | null;
+  /** Crate photo pre-scaled to its on-screen width (no per-frame resampling of the 1000 px source). */
+  private img: HTMLCanvasElement | null = null;
   /** Height of one stack level (the crate's front face) and of the open top above it. */
   private crateH = CRATE_H;
   private crateTop = DY;
@@ -131,9 +132,13 @@ export class CrateStacker implements Game<CrateResult> {
       ctx.fillStyle = P.starRed;
       ctx.fill();
     });
-    this.img = sprites.crateImage;
-    if (this.img) {
-      const aspect = this.img.naturalHeight / this.img.naturalWidth;
+    const photo = sprites.crateImage;
+    if (photo) {
+      const aspect = photo.naturalHeight / photo.naturalWidth;
+      this.img = makeSprite(Math.round(cfg.startWidth), Math.round(cfg.startWidth * aspect), (c) => {
+        c.imageSmoothingQuality = "high";
+        c.drawImage(photo, 0, 0, Math.round(cfg.startWidth), Math.round(cfg.startWidth * aspect));
+      }).canvas;
       this.crateH = cfg.startWidth * aspect * (1 - CRATE_RIM);
       this.crateTop = cfg.startWidth * aspect * CRATE_RIM;
     }
@@ -384,8 +389,11 @@ export class CrateStacker implements Game<CrateResult> {
     ctx.drawImage(this.bg.canvas, 0, 0);
     // Parallax far layer at 30% camera speed, tiled vertically.
     const off = (this.cam * 0.3) % H;
-    ctx.drawImage(this.far.canvas, 0, off - H);
-    ctx.drawImage(this.far.canvas, 0, off);
+    // Parallax layer only when the device has headroom: two extra full-screen blits.
+    if (this.q.extras) {
+      ctx.drawImage(this.far.canvas, 0, off - H);
+      ctx.drawImage(this.far.canvas, 0, off);
+    }
 
     // World camera follows the stack; in the outro it eases out to frame the whole tower
     // (ground pinned near the screen bottom, horizontal centre fixed).
@@ -452,9 +460,9 @@ export class CrateStacker implements Game<CrateResult> {
   /** Photo crate whose front face bottom is at y; the open top sits above the face. */
   private drawPhoto(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, u0: number, u1: number, squash: number) {
     const img = this.img!;
-    const iw = img.naturalWidth;
+    const iw = img.width;
     const fullH = (this.crateH + this.crateTop) * (1 - squash);
-    ctx.drawImage(img, u0 * iw, 0, Math.max(1, (u1 - u0) * iw), img.naturalHeight, x, y - fullH, w, fullH);
+    ctx.drawImage(img, u0 * iw, 0, Math.max(1, (u1 - u0) * iw), img.height, x, y - fullH, w, fullH);
   }
 
   /** Crate whose front face spans y-crateH..y in world space. */

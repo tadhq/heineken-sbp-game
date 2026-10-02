@@ -63,6 +63,9 @@ export function getSyncStatus() {
   return status;
 }
 
+/** Last successful upload, remembered across restarts. */
+export const lastSyncAt = async () => status.lastSyncAt ?? (await store.get<number>("lastSyncAt")) ?? null;
+
 /** Upload everything not on hold. Single-flight: concurrent callers share one run. */
 export function flush(): Promise<SyncStatus> {
   inflight ??= doFlush().finally(() => (inflight = null));
@@ -109,6 +112,7 @@ async function doFlush(): Promise<SyncStatus> {
     }
     const left = await store.outbox();
     status = { pending: left.length, lastSyncAt: Date.now(), paired: true, lastError: null };
+    await store.set("lastSyncAt", status.lastSyncAt); // survives app restarts (staff screen)
   } catch (e) {
     status = { ...status, lastError: e instanceof Error ? e.message : "sync_failed" };
   }
