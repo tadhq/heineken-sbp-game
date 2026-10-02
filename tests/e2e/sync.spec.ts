@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, request, test } from "@playwright/test";
-import { adminContext, BASE, pairKiosk, resetThrottle, starSession, withDb } from "./helpers";
+import { adminContext, BASE, getConfig, pairKiosk, putConfig, resetThrottle, starSession, withDb } from "./helpers";
 
 test.beforeAll(resetThrottle);
 
@@ -10,7 +10,13 @@ test("sync is idempotent: replays and concurrent duplicates store one session an
   const admin = await adminContext("10.3.0.1");
   const { token } = await pairKiosk(admin);
   const kiosk = await request.newContext({ baseURL: BASE, extraHTTPHeaders: { authorization: `Bearer ${token}` } });
-  const s = starSession({ score: 620, prize: award() });
+  // Prizes are off by default; the award path needs a config version that has them on.
+  const original = (await getConfig(admin)).config;
+  const withPrizes = structuredClone(original);
+  withPrizes.kiosk.prizesEnabled = true;
+  const { version } = await putConfig(admin, withPrizes, "e2e: prizes on");
+  await putConfig(admin, original, "e2e: restore");
+  const s = starSession({ score: 620, prize: award(), configVersion: version });
 
   const first = await kiosk.post("/api/kiosk/sync", { data: { sessions: [s] } });
   expect(first.status()).toBe(200);

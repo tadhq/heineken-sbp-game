@@ -224,6 +224,42 @@ Audio costs about 1-2 fps under 6x throttle (`PERF_AUDIO=0` comparison).
 
 Bugs found and fixed in this pass: far-star parallax layer and per-star halos cost ~30% frame time (baked/removed); the iris overlay hid the countdown's "3" (countdown now starts after it); "Congratulations!" in English overflowed the stage for a few frames during its entrance (gentler animation); music stems were re-decoded on every replay (cache now keeps the last game's stems).
 
+## Redesign pass (2026-10-02, afternoon)
+
+Scope: the gameplay redesign, new assets, stage lighting and UI changes in GAME_DESIGN.md, and owner feedback afterwards:
+
+- No prize shown on the kiosk; the score is centre stage.
+- The attract screen shows the multipack only, with no spinning light.
+- The Crate Stacker background uses crate stacks.
+- The drop guide and the landing shadow are gone.
+
+**Environment.** Docker Desktop would not start. The DB-backed suites ran against a throwaway Postgres 16 on :55433 (UTC, migrated, seeded). `.env` now points at Neon. The e2e config therefore refuses any non-local `DATABASE_URL`, and every suite ran with an explicit local override.
+
+| Check | Result |
+|---|---|
+| Typecheck, lint | PASS |
+| Unit (vitest) | PASS, 34/34. New tests: balance simulation of both games (3 bot skill levels × 50 rounds, score bands, every result through `checkPlausibility`), old-kiosk payloads without the new stats, served/perfect bounds. |
+| E2E (`pnpm test:e2e`) | PASS, 26/26, on the final build. The Star Catcher test now asserts the score is shown and no prize is. |
+| Soak, 120 games (`pnpm test:soak`) | PASS (33.9 min). 120/120 stored, 0 errors. Heap 5.11 → 5.33 MB (games 10 → 120); DOM 234 → 233; listeners 361 → 361. One AudioContext throughout, ≤ 3 decoded stems. Unthrottled 56 fps average (min 40). The last 12 games run at 6x throttle with quality forced to high: 20 fps. |
+| Perf, 6x CPU + software GL (`--grep @perf`, quality auto) | Star Catcher 33-45 fps on low; Crate Stacker 28-51 fps. The previous pass measured ~26-27 and ~27-29 on the same proxy. |
+| Visual QA in Chrome | Every screen and both games, through the new `?qa` frame-step hook (the Chrome window was in the background, so rAF was paused). Includes full glass, serve, bonus x2, crate stages, crane, golden crate, outro, result, settings. Background artifacts reported by the owner were confirmed by canvas pixel checks before and after each fix. |
+| Production (Vercel) | Live on `main`. `/`, `/admin` and `/api/kiosk/config` respond. Neon migrated and seeded (config v1). The production game chunk was checked for the latest fixes from inside Chrome (curl is blocked by Vercel's bot challenge). |
+| Admin "Use defaults" button, admin login on Neon | **NOT RUN** (no admin credential provided for this session; the PIN in `.env` was not used to log in) |
+| Real kiosk hardware, Android APK rebuild | **NOT RUN** |
+| Listening test of the 12 new sound effects | **NOT RUN** (checked by render only) |
+| Real players | **NOT RUN**. Score bands come from a bot model and must be validated on site. |
+
+Bugs found and fixed in this pass:
+
+- Vercel served 404 (the framework preset was "Other").
+- Vercel's TypeCheck check failed (no `prisma generate`).
+- The low-quality frame rate regressed until far layers, overlays and shadows were trimmed.
+- The full-glass, combo and bonus texts overlapped.
+- A fresh glass inherited the foam crown.
+- Crate texts were drawn on the hovering crate.
+- The drop guide and the landing shadow read as a floating box.
+- Far background stacks drew a ghost border behind the moving crate.
+
 ## Final recommendation
 
 The software is functionally complete. It passes 26 unit tests and 26 end-to-end tests, plus the 120-game soak. The Android app runs fully offline on an Android 11 emulator with the stock WebView.
