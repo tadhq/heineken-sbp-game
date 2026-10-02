@@ -1,37 +1,31 @@
 /**
- * Procedural audio. SFX are ZzFX parameter sets (MIT, see CREDITS.md) rendered into
- * AudioBuffers ONCE when audio is unlocked by the first tap; playing one during the game
- * is just a buffer-source node, no synthesis on the hot path. Music is a tiny step
- * sequencer on the same AudioContext. Every call is a no-op when audio is unavailable,
- * so a broken audio stack can never break the game.
+ * Sample-based sound effects (Kenney CC0 packs, see ASSETS.md) decoded into AudioBuffers
+ * once, when audio is unlocked by the first tap; playing one during the game is just a
+ * buffer-source node. Music is a tiny step sequencer on the same AudioContext. Every call
+ * is a no-op when audio is unavailable, so a broken audio stack can never break the game.
  */
 
-// ZzFX parameter order: volume, randomness, frequency, attack, sustain, release, shape,
-// shapeCurve, slide, deltaSlide, pitchJump, pitchJumpTime, repeatTime, noise, modulation,
-// bitCrush, delay, sustainVolume, decay, tremolo, filter
-const SFX = {
-  tap: [0.6, 0, 520, 0, 0.02, 0.06, 1, 1.6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.6, 0.01],
-  tick: [0.7, 0, 880, 0, 0.03, 0.08, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.7, 0.02],
-  go: [1, 0, 660, 0.01, 0.12, 0.3, 1, 1.4, 0, 0, 330, 0.06, 0, 0, 0, 0, 0, 0.8, 0.04],
-  catch: [0.8, 0, 760, 0, 0.03, 0.12, 0, 1.4, 0, 0, 260, 0.03, 0, 0, 0, 0, 0, 0.6, 0.02],
-  golden: [1, 0, 523, 0.01, 0.2, 0.45, 0, 1.2, 0, 0, 523, 0.07, 0.07, 0, 0, 0, 0.06, 0.7, 0.05],
-  hazard: [1.1, 0, 140, 0.01, 0.12, 0.35, 3, 2.4, -6, 0, 0, 0, 0, 0.8, 0, 0.2, 0, 0.6, 0.05],
-  chill: [0.8, 0, 1400, 0.02, 0.2, 0.5, 0, 1.8, -2, 0, 0, 0, 0.09, 0, 0, 0, 0.12, 0.5, 0.05],
-  dodge: [0.5, 0, 1200, 0, 0.02, 0.06, 0, 1, 18, 0, 0, 0, 0, 0, 0, 0, 0, 0.4, 0.01],
-  combo: [0.9, 0, 880, 0.01, 0.08, 0.25, 0, 1.5, 0, 0, 440, 0.05, 0, 0, 0, 0, 0, 0.7, 0.03],
-  miss: [0.45, 0, 300, 0, 0.04, 0.15, 2, 1, -8, 0, 0, 0, 0, 0, 0, 0, 0, 0.4, 0.02],
-  drop: [1, 0, 90, 0, 0.04, 0.22, 0, 2.6, -2.5, 0, 0, 0, 0, 0.35, 0, 0, 0, 0.7, 0.03],
-  slice: [0.6, 0, 400, 0, 0.03, 0.12, 4, 1, -5, 0, 0, 0, 0, 1.4, 0, 0, 0, 0.5, 0.02],
-  perfect: [0.9, 0, 1046, 0, 0.06, 0.32, 0, 1.6, 0, 0, 0, 0, 0, 0, 0, 0, 0.05, 0.65, 0.03],
-  fall: [0.9, 0, 220, 0.02, 0.25, 0.6, 1, 1.4, -1.2, 0, 0, 0, 0, 0.2, 0, 0, 0, 0.6, 0.1],
-  milestone: [0.9, 0, 784, 0.01, 0.1, 0.3, 0, 1.3, 0, 0, 392, 0.08, 0.08, 0, 0, 0, 0, 0.7, 0.03],
-  end: [1, 0, 392, 0.02, 0.25, 0.6, 0, 1.2, 0, 0, -98, 0.15, 0, 0, 0, 0, 0.1, 0.7, 0.1],
-  prize: [1, 0, 523, 0.02, 0.35, 0.6, 0, 1.2, 0, 0, 262, 0.1, 0.1, 0, 0, 0, 0.08, 0.8, 0.08],
-} satisfies Record<string, number[]>;
+const SFX = [
+  "tap",
+  "tick",
+  "go",
+  "catch",
+  "golden",
+  "hazard",
+  "chill",
+  "dodge",
+  "combo",
+  "miss",
+  "drop",
+  "slice",
+  "perfect",
+  "fall",
+  "milestone",
+  "end",
+  "prize",
+] as const;
 
-export type SfxName = keyof typeof SFX;
-
-type ZzfxModule = typeof import("zzfx");
+export type SfxName = (typeof SFX)[number];
 
 class AudioEngine {
   private ctx: AudioContext | null = null;
@@ -64,33 +58,35 @@ class AudioEngine {
   }
 
   private async init() {
-    // Dynamic import: ZzFX creates its AudioContext at module load, which must happen
-    // inside the user-gesture window and never during server rendering.
-    const { ZZFX } = (await import("zzfx")) as ZzfxModule;
-    const ctx: AudioContext = ZZFX.audioContext;
+    const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const ctx = new Ctx();
     if (ctx.state === "suspended") await ctx.resume().catch(() => {});
     this.master = ctx.createGain();
-    this.master.gain.value = 0.8;
+    this.master.gain.value = 0.9;
     this.master.connect(ctx.destination);
     this.sfxBus = ctx.createGain();
-    // ZzFX samples are full scale; its own player applies ~0.3 gain, so match that.
-    this.sfxBus.gain.value = 0.35;
+    this.sfxBus.gain.value = 0.8;
     this.sfxBus.connect(this.master);
     this.musicBus = ctx.createGain();
-    this.musicBus.gain.value = 0.32;
+    this.musicBus.gain.value = 0.28;
     this.musicBus.connect(this.master);
 
-    for (const [name, params] of Object.entries(SFX) as [SfxName, number[]][]) {
-      const samples: number[] = ZZFX.buildSamples(...params);
-      const buf = ctx.createBuffer(1, samples.length, ZZFX.sampleRate);
-      buf.getChannelData(0).set(samples);
-      this.buffers.set(name, buf);
-    }
     const n = ctx.createBuffer(1, ctx.sampleRate * 0.25, ctx.sampleRate);
     const d = n.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     this.noise = n;
     this.ctx = ctx;
+    // Decode in parallel; a missing file only silences that one effect.
+    await Promise.all(
+      SFX.map(async (name) => {
+        try {
+          const res = await fetch(`/assets/sfx/${name}.ogg`);
+          this.buffers.set(name, await ctx.decodeAudioData(await res.arrayBuffer()));
+        } catch (e) {
+          console.warn("[audio] could not load", name, e);
+        }
+      }),
+    );
   }
 
   /** `rate` shifts pitch (used for rising combo tones). Same sound is rate-limited. */

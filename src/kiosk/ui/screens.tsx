@@ -7,7 +7,7 @@ import type { GameId, Prize } from "@/lib/config";
 import type { Dict, RuleIcon } from "@/lib/i18n";
 import { initialsAllowed } from "@/lib/initials";
 import type { BoardEntry } from "../sync";
-import { Backdrop, BrandMark, HeroStar, ResponsibleFooter, StarSvg } from "./parts";
+import { Backdrop, BrandMark, OfficialStar, ProductHero, ResponsibleFooter } from "./parts";
 
 const tap = () => audio.play("tap");
 
@@ -20,7 +20,7 @@ export function Attract({ t, lite, onStart, onAdmin }: { t: Dict; lite: boolean;
     <div className="absolute inset-0" onPointerDown={onStart}>
       <Backdrop lite={lite} />
       <div
-        className="absolute left-0 top-0 z-10 h-[200px] w-full"
+        className="absolute left-0 top-0 z-10 h-[330px] w-full"
         onPointerDown={(e) => {
           e.stopPropagation();
           hold.current = setTimeout(onAdmin, 3000);
@@ -29,26 +29,26 @@ export function Attract({ t, lite, onStart, onAdmin }: { t: Dict; lite: boolean;
         onPointerLeave={() => hold.current && clearTimeout(hold.current)}
       >
         <div className="flex h-full items-end justify-center">
-          <BrandMark className="h-[96px] text-[88px] leading-none" />
+          <BrandMark className="h-[250px] w-auto drop-shadow-[0_10px_30px_rgba(0,30,10,0.45)]" />
         </div>
       </div>
-      <div className="absolute inset-x-0 top-[300px] flex justify-center">
-        <div className={lite ? "" : "motion-safe-only animate-float"}>
-          <HeroStar size={560} lite={lite} />
-        </div>
+      <div className="absolute inset-x-0 top-[330px]">
+        <ProductHero lite={lite} />
       </div>
-      <div className="absolute inset-x-0 top-[980px] flex flex-col items-center px-16 text-center">
-        <h1 className="font-display text-[176px] font-bold uppercase leading-[0.9] tracking-tight text-cream">{t.playAndWin}</h1>
-        <div className="mt-8 flex gap-5 font-display text-[44px] font-bold uppercase text-silver">
+      <div className="absolute inset-x-0 top-[1150px] flex flex-col items-center px-16 text-center">
+        <h1 className="font-display text-[168px] font-bold uppercase leading-[0.9] tracking-tight text-cream drop-shadow-[0_8px_24px_rgba(0,30,10,0.5)]">
+          {t.playAndWin}
+        </h1>
+        <div className="mt-6 flex items-center gap-5 font-display text-[44px] font-bold uppercase text-cream/90">
           <span>{t.games.star.name}</span>
-          <StarSvg className="h-11 w-11 self-center" />
+          <OfficialStar size={46} />
           <span>{t.games.crate.name}</span>
         </div>
       </div>
-      <div className="absolute inset-x-0 top-[1480px] flex justify-center">
-        <div className={`btn-primary h-[168px] w-[720px] text-[64px] ${lite ? "" : "motion-safe-only animate-pulse-soft"}`}>
+      <div className="absolute inset-x-0 top-[1560px] flex justify-center">
+        <div className={`btn-primary h-[168px] w-[740px] text-[64px] ${lite ? "" : "motion-safe-only animate-pulse-soft"}`}>
           {t.tapToStart}
-          {!lite && <span className="motion-safe-only absolute inset-y-0 left-0 w-1/3 animate-shine bg-white/20" aria-hidden />}
+          {!lite && <span className="motion-safe-only absolute inset-y-0 left-0 w-1/3 animate-shine bg-white/25" aria-hidden />}
         </div>
       </div>
       <ResponsibleFooter text={t.responsible} notice={t.ageNotice} />
@@ -75,22 +75,20 @@ export function Select({
   onBoard: () => void;
   leaderboard: boolean;
 }) {
-  const card = (g: GameId, icon: RuleIcon, accent: string, delay: string) => (
+  const card = (g: GameId, art: React.ReactNode, accent: string, delay: string) => (
     <button
       type="button"
       onClick={() => {
         tap();
         onPick(g);
       }}
-      className="group relative flex h-[560px] w-[940px] animate-rise-in items-center overflow-hidden rounded-[48px] border-2 border-silver/20 text-left transition-transform duration-150 active:scale-[0.98]"
-      style={{ animationDelay: delay, background: `linear-gradient(135deg, ${accent} 0%, #062a14 70%)` }}
+      className="group relative flex h-[520px] w-[960px] animate-rise-in items-center overflow-hidden rounded-[48px] border-2 border-cream/25 text-left shadow-[0_30px_60px_-20px_rgba(0,30,10,0.6)] transition-transform duration-150 active:scale-[0.98]"
+      style={{ animationDelay: delay, background: `radial-gradient(120% 140% at 85% 50%, ${accent} 0%, #0c5a22 45%, #06341a 100%)` }}
     >
-      <div className="absolute -right-24 top-1/2 h-[560px] w-[560px] -translate-y-1/2 rounded-full bg-black/20" />
-      {/* eslint-disable-next-line @next/next/no-img-element -- generated data URL */}
-      <img src={icons[icon]} alt="" className="absolute right-6 top-1/2 h-[380px] w-[380px] -translate-y-1/2 object-contain" draggable={false} />
-      <div className="relative z-10 flex h-full flex-col justify-center pl-16 pr-[420px]">
+      <div className="absolute inset-y-0 right-0 w-[480px]">{art}</div>
+      <div className="relative z-10 flex h-full flex-col justify-center pl-16 pr-[440px]">
         <h2 className="font-display text-[100px] font-bold uppercase leading-[0.92] text-cream">{t.games[g].name}</h2>
-        <p className="mt-5 font-sans text-[38px] leading-tight text-cream/85">{t.games[g].tagline}</p>
+        <p className="mt-5 font-sans text-[38px] leading-tight text-cream/90">{t.games[g].tagline}</p>
         {best[g] ? (
           <p className="mt-8 font-display text-[34px] font-bold uppercase text-gold">
             {t.today}: {best[g]}
@@ -99,15 +97,39 @@ export function Select({
       </div>
     </button>
   );
+  const starArt = (
+    <>
+      <OfficialStar size={120} className="absolute left-[40px] top-[40px] rotate-[-12deg]" />
+      <OfficialStar size={80} className="absolute right-[60px] top-[90px] rotate-[14deg]" />
+      <OfficialStar size={60} className="absolute left-[120px] top-[220px] rotate-[6deg] opacity-80" />
+      {/* eslint-disable-next-line @next/next/no-img-element -- static brand photo */}
+      <img src="/assets/brand/glass.webp" alt="" draggable={false} className="absolute bottom-[-30px] left-1/2 h-[470px] w-auto -translate-x-1/2" style={{ filter: "drop-shadow(0 30px 30px rgba(0,25,8,0.5))" }} />
+    </>
+  );
+  const crateArt = (
+    <div className="absolute inset-0">
+      {[0, 1, 2].map((i) => (
+        // eslint-disable-next-line @next/next/no-img-element -- generated crate render
+        <img
+          key={i}
+          src={icons.crate}
+          alt=""
+          draggable={false}
+          className="absolute h-[170px] w-auto"
+          style={{ left: 110 + [0, 22, -10][i], bottom: 30 + i * 128, transform: `rotate(${[0, -2, 3][i]}deg)`, filter: "drop-shadow(0 18px 18px rgba(0,25,8,0.45))" }}
+        />
+      ))}
+    </div>
+  );
   return (
     <div className="absolute inset-0">
       <Backdrop lite={lite} />
-      <div className="relative flex h-full flex-col items-center pt-[150px]">
-        <BrandMark className="h-[70px] text-[64px] leading-none" />
-        <h1 className="mb-14 mt-12 font-display text-[96px] font-bold uppercase text-cream">{t.chooseGame}</h1>
+      <div className="relative flex h-full flex-col items-center pt-[110px]">
+        <BrandMark className="h-[150px] w-auto" />
+        <h1 className="mb-12 mt-10 font-display text-[96px] font-bold uppercase text-cream">{t.chooseGame}</h1>
         <div className="flex flex-col gap-12">
-          {card("star", "goldStar", "#7a1410", "0.05s")}
-          {card("crate", "crate", "#13670b", "0.15s")}
+          {card("star", starArt, "#8a1a12", "0.05s")}
+          {card("crate", crateArt, "#3a9a38", "0.15s")}
         </div>
         {leaderboard && (
           <button

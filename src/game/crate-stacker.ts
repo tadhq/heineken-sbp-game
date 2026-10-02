@@ -6,7 +6,7 @@ import { PALETTE as P } from "./engine/palette";
 import { Particles } from "./engine/particles";
 import { Popups } from "./engine/popups";
 import type { Game, Quality } from "./engine/runner";
-import { beams, bokeh, makeSprite, type SharedSprites, type Sprite, starPath, vignette } from "./engine/sprites";
+import { beams, bokeh, brandBackdrop, makeSprite, type SharedSprites, type Sprite, starPath, vignette } from "./engine/sprites";
 import type { CrateResult, GameLabels } from "./types";
 
 /*
@@ -80,14 +80,9 @@ export class CrateStacker implements Game<CrateResult> {
     this.particles = new Particles(220, sprites.particles);
     this.popups = new Popups(12, font);
     this.bg = makeSprite(W, H, (ctx) => {
-      const g = ctx.createLinearGradient(0, 0, 0, H);
-      g.addColorStop(0, "#020b05");
-      g.addColorStop(0.6, P.deep);
-      g.addColorStop(1, "#0b3f1c");
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, W, H);
+      brandBackdrop(ctx, W / 2, H * 0.3);
       beams(ctx, 4, 0.05);
-      vignette(ctx, 0.5);
+      vignette(ctx, 0.45);
     });
     // Tileable far layer, scrolled at a fraction of camera speed for parallax.
     this.far = makeSprite(W, H, (ctx) => {
@@ -99,9 +94,10 @@ export class CrateStacker implements Game<CrateResult> {
     });
     this.body = makeSprite(8, CRATE_H, (ctx) => {
       const g = ctx.createLinearGradient(0, 0, 0, CRATE_H);
-      g.addColorStop(0, "#2d9a3a");
-      g.addColorStop(0.12, "#1c7f2c");
-      g.addColorStop(1, "#0b4d1a");
+      // Heineken crate green, moulded plastic: bright lip, darker body.
+      g.addColorStop(0, "#3fb04a");
+      g.addColorStop(0.1, "#16862f");
+      g.addColorStop(1, "#0a5a22");
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, 8, CRATE_H);
       // Slat grooves
@@ -312,7 +308,9 @@ export class CrateStacker implements Game<CrateResult> {
     } else {
       this.particles.burst(sx, sy + CRATE_H - 6, 8, 5, 300, { life: 0.4, gravity: 600 });
     }
-    this.popups.show(`+${pts}`, sx, Math.max(320, sy - 40), P.cream, 58);
+    // Beside the stack, not on it: the next crate hovers right over the placed one.
+    const px = placed.x + placed.w + DX + 90 < W - 60 ? placed.x + placed.w + DX + 90 : placed.x - 90;
+    this.popups.show(`+${pts}`, px, Math.max(320, sy + 20), P.cream, 58);
 
     if (placed.w < c.minWidth) return this.gameOver(this.labels.gameOver);
     if (this.level % 10 === 1 && this.level > 1) {
@@ -457,10 +455,17 @@ export class CrateStacker implements Game<CrateResult> {
           ctx.beginPath();
           ctx.ellipse(cx, ry + 2, gap * 0.36, 7, 0, 0, Math.PI * 2);
           ctx.fill();
-          ctx.fillStyle = r ? "#c9cfcb" : "#e6ebe7";
+          // Heineken caps: silver crimp ring, green crown, red star dot.
+          ctx.fillStyle = r ? "#b9c1bc" : "#dfe6e1";
           ctx.beginPath();
           ctx.ellipse(cx, ry, gap * 0.3, 6, 0, 0, Math.PI * 2);
           ctx.fill();
+          ctx.fillStyle = "#13873a";
+          ctx.beginPath();
+          ctx.ellipse(cx, ry - 0.5, gap * 0.22, 4.2, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = P.starRed;
+          ctx.fillRect(cx - 2, ry - 2, 4, 3);
         }
       }
     }
@@ -484,7 +489,40 @@ export class CrateStacker implements Game<CrateResult> {
       ctx.roundRect(x + w - 80, y + 12, 58, 14, 7);
       ctx.fill();
     }
-    if (w > 120) ctx.drawImage(this.badge.canvas, x + w / 2 - 45, y + h / 2 - 26, 90, 60 * (h / CRATE_H));
+    this.drawLabel(ctx, x, y, w, h);
+  }
+
+  /** Recessed label panel with the real white wordmark and red star (brand assets). */
+  private drawLabel(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
+    const wm = this.sprites.wordmark;
+    if (!wm) {
+      if (w > 120) ctx.drawImage(this.badge.canvas, x + w / 2 - 45, y + h / 2 - 26, 90, 60 * (h / CRATE_H));
+      return;
+    }
+    if (w < 70) return;
+    const panelW = Math.min(w - 24, 380);
+    const panelH = h * 0.5;
+    const px = x + (w - panelW) / 2;
+    const py = y + h * 0.36;
+    ctx.fillStyle = "rgba(0,40,12,0.45)";
+    ctx.beginPath();
+    ctx.roundRect(px, py, panelW, panelH, 10);
+    ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.10)";
+    ctx.fillRect(px + 8, py + panelH - 2, panelW - 16, 2);
+    const star = this.sprites.redStar;
+    const starH = panelH * 0.86;
+    const starW = (star.w / star.h) * starH;
+    const textH = panelH * 0.62;
+    const textW = Math.min(panelW - starW - 24, (wm.w / wm.h) * textH);
+    const th = (wm.h / wm.w) * textW;
+    const total = (panelW > 160 ? starW + 8 : 0) + textW;
+    let cx = px + (panelW - total) / 2;
+    if (panelW > 160) {
+      ctx.drawImage(star.canvas, cx, py + (panelH - starH) / 2, starW, starH);
+      cx += starW + 8;
+    }
+    ctx.drawImage(wm.canvas, cx, py + (panelH - th) / 2, textW, th);
   }
 
   private drawCrateLocal(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, shade: number) {

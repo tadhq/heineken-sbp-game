@@ -1,4 +1,5 @@
 import { H, W } from "./math";
+import { type BrandImages, LOGO_WORDMARK, logoRect } from "./brand-assets";
 import { PALETTE as P } from "./palette";
 
 /**
@@ -90,7 +91,7 @@ function miniStar(color: string, size: number): Sprite {
 
 export const STAR_R = 56;
 
-export function createSharedSprites() {
+function proceduralSprites() {
   const redStar = makeSprite(STAR_R * 2.4, STAR_R * 2.4, (ctx) =>
     bevelStar(ctx, STAR_R * 1.2, STAR_R * 1.15, STAR_R, ["#ff8a78", P.starRed, "#a8150c"], P.starRedDark),
   );
@@ -186,6 +187,7 @@ export function createSharedSprites() {
     glowRed: glow(P.starRed, 260, 0.6),
     glowGreen: glow(P.bright, 360, 0.55),
     glowIce: glow(P.ice, 300, 0.6),
+    ring: glow("#ffffff", 256, 0.5),
     shadow: makeSprite(240, 60, (ctx) => {
       ctx.scale(1, 0.25);
       const g = ctx.createRadialGradient(120, 120, 10, 120, 120, 120);
@@ -196,7 +198,149 @@ export function createSharedSprites() {
     }),
   };
 }
+
+// Crate wordmark baked at 1.4x logo units (about 600x100 px): crisp at crate size.
+const LOGO_SCALE_FOR_CRATE = 4 / 1.4;
+
+/**
+ * Heineken's signature vivid-green radial (sampled from heineken.com's brand gradient),
+ * darkening to deep green at the edges so red stars and white type keep contrast.
+ */
+export function brandBackdrop(ctx: CanvasRenderingContext2D, cx = W / 2, cy = H * 0.38) {
+  const g = ctx.createRadialGradient(cx, cy, 40, cx, cy, H * 0.78);
+  g.addColorStop(0, "#3f9b35");
+  g.addColorStop(0.35, "#1f7a2c");
+  g.addColorStop(0.7, P.brandEdge);
+  g.addColorStop(1, "#063218");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+}
+
+/** White texture tinted to a colour (Kenney particles ship white). */
+function tint(img: CanvasImageSource, size: number, color: string, alpha = 1): Sprite {
+  return makeSprite(size, size, (ctx) => {
+    ctx.drawImage(img, 0, 0, size, size);
+    ctx.globalCompositeOperation = "source-in";
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = color;
+    ctx.fillRect(0, 0, size, size);
+    // Keep a hot white core so tinted sparks still read as light.
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = 0.35;
+    ctx.drawImage(img, size * 0.2, size * 0.2, size * 0.6, size * 0.6);
+    // Fade to zero at the edges: some source textures never quite reach full transparency,
+    // which shows up as a square when drawn additively.
+    ctx.globalCompositeOperation = "destination-in";
+    ctx.globalAlpha = 1;
+    const m = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    m.addColorStop(0.55, "rgba(0,0,0,1)");
+    m.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = m;
+    ctx.fillRect(0, 0, size, size);
+  });
+}
+
+/** The official star (red with white keyline) cut from the logo artwork. */
+function officialStar(img: BrandImages, width: number, recolor?: (ctx: CanvasRenderingContext2D, w: number, h: number) => void): Sprite {
+  const h = (width * img.star.naturalHeight) / img.star.naturalWidth;
+  const pad = width * 0.18;
+  return makeSprite(width + pad * 2, h + pad * 2, (ctx) => {
+    const star = makeSprite(width, h, (c) => {
+      c.drawImage(img.star, 0, 0, width, h);
+      recolor?.(c, width, h);
+    });
+    // Baked soft shadow and a glossy sheen: depth without any per-frame cost.
+    ctx.shadowColor = "rgba(0,20,8,0.45)";
+    ctx.shadowBlur = width * 0.08;
+    ctx.shadowOffsetY = width * 0.05;
+    ctx.drawImage(star.canvas, pad, pad);
+    ctx.shadowColor = "transparent";
+    ctx.globalCompositeOperation = "source-atop";
+    const g = ctx.createLinearGradient(pad, pad, pad + width * 0.7, pad + h * 0.7);
+    g.addColorStop(0, "rgba(255,255,255,0.38)");
+    g.addColorStop(0.45, "rgba(255,255,255,0.05)");
+    g.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, width + pad * 2, h + pad * 2);
+  });
+}
+
+/**
+ * Sprite set for both games. With brand images (normal case) the stars are the official
+ * Heineken star, the catcher is the real draught glass and effects use Kenney CC0
+ * textures; without them (asset load failed) the procedural art keeps the kiosk playable.
+ */
+export function createSharedSprites(img: BrandImages | null) {
+  const base = proceduralSprites();
+  if (!img) return { ...base, glass: null as GlassSprite | null, wordmark: null as Sprite | null };
+  const fx = img.fx;
+  const width = STAR_R * 2.15;
+  const redStar = officialStar(img, width);
+  const goldStar = (() => {
+    const core = officialStar(img, width * 1.08, (c, w, h) => {
+      // Recolour the red to gold, keep the keyline light.
+      c.globalCompositeOperation = "source-atop";
+      const g = c.createLinearGradient(0, 0, w, h);
+      g.addColorStop(0, "#fff4c2");
+      g.addColorStop(0.45, "#ffc94a");
+      g.addColorStop(1, "#c98a10");
+      c.fillStyle = g;
+      c.fillRect(0, 0, w, h);
+      c.globalCompositeOperation = "screen";
+      c.globalAlpha = 0.35;
+      c.drawImage(img.star, 0, 0, w, h);
+    });
+    const size = core.w * 1.9;
+    return makeSprite(size, size, (ctx) => {
+      ctx.globalCompositeOperation = "lighter";
+      ctx.drawImage(tint(fx.light_02, size, "#ffcc55", 0.9).canvas, 0, 0);
+      ctx.globalCompositeOperation = "source-over";
+      ctx.drawImage(core.canvas, (size - core.w) / 2, (size - core.h) / 2);
+      ctx.globalCompositeOperation = "lighter";
+      ctx.drawImage(fx.star_09, size * 0.58, size * 0.16, size * 0.3, size * 0.3);
+    });
+  })();
+  // Glass photo is 400x600 with the glass itself at x 115-284, foam top y 27, base y 561
+  // (measured alpha bbox). Crop to it, scale to the on-screen width, keep geometry for play.
+  const G = { sx: 95, sy: 15, sw: 210, sh: 585, glassX: 115, glassW: 169, rimY: 27, baseY: 561 };
+  const k = (176 / G.glassW) * (img.glass.naturalWidth / 400);
+  const gw = G.sw * k;
+  const gh = G.sh * k;
+  const [wx, wy, ww, wh] = logoRect(LOGO_WORDMARK);
+  return {
+    ...base,
+    redStar,
+    goldStar,
+    sun: base.sun,
+    ice: base.ice,
+    particles: [
+      tint(fx.star_08, 40, P.starRed), // 0 red glow dot
+      tint(fx.star_08, 46, P.gold), // 1 gold glow dot
+      tint(fx.star_08, 40, P.bright), // 2 green
+      tint(fx.star_08, 40, P.ice), // 3 ice
+      tint(fx.star_08, 40, P.heat), // 4 heat
+      tint(fx.star_09, 34, "#ffffff"), // 5 white sparkle
+      tint(fx.flare_01, 44, "#ff4a3a"), // 6 red flare
+      tint(fx.star_09, 48, P.gold), // 7 gold sparkle
+    ],
+    glowGold: tint(fx.light_02, 420, P.gold, 0.85),
+    glowRed: tint(fx.light_02, 260, "#ff3b1f", 0.8),
+    glowGreen: tint(fx.light_02, 360, "#7dff7a", 0.6),
+    glowIce: tint(fx.light_02, 300, P.ice, 0.8),
+    ring: tint(fx.star_06, 256, "#ffffff"),
+    // Real glass photo, baked at on-screen size (the source has wide transparent margins).
+    glass: {
+      ...makeSprite(gw, gh, (ctx) => ctx.drawImage(img.glass, G.sx * (img.glass.naturalWidth / 400), G.sy * (img.glass.naturalWidth / 400), G.sw * (img.glass.naturalWidth / 400), G.sh * (img.glass.naturalWidth / 400), 0, 0, gw, gh), (G.glassX + G.glassW / 2 - G.sx) * k, (G.baseY - G.sy) * k),
+      rimHalf: (G.glassW * k) / 2,
+      rimHeight: (G.baseY - G.rimY) * k,
+    } as GlassSprite | null,
+    wordmark: makeSprite(ww / LOGO_SCALE_FOR_CRATE, wh / LOGO_SCALE_FOR_CRATE, (ctx) => ctx.drawImage(img.logo, wx, wy, ww, wh, 0, 0, ww / LOGO_SCALE_FOR_CRATE, wh / LOGO_SCALE_FOR_CRATE)),
+  };
+}
+
 export type SharedSprites = ReturnType<typeof createSharedSprites>;
+/** Catcher art plus its play geometry: anchor at the glass base, rim relative to it. */
+export type GlassSprite = Sprite & { rimHalf: number; rimHeight: number };
 
 /** Soft cinematic vignette shared by both games' backgrounds. */
 export function vignette(ctx: CanvasRenderingContext2D, strength = 0.6) {

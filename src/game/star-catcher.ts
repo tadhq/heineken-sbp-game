@@ -6,7 +6,7 @@ import { PALETTE as P } from "./engine/palette";
 import { Particles } from "./engine/particles";
 import { Popups } from "./engine/popups";
 import type { Game, Quality } from "./engine/runner";
-import { beams, bokeh, makeSprite, type SharedSprites, type Sprite, starPath, vignette } from "./engine/sprites";
+import { beams, bokeh, brandBackdrop, makeSprite, type SharedSprites, type Sprite, starPath, vignette } from "./engine/sprites";
 import type { GameLabels, StarResult } from "./types";
 
 /*
@@ -40,10 +40,12 @@ type Obj = {
 };
 
 const MAX_OBJECTS = 48;
-const RIM_Y = 1540;
-const RIM_HALF = 104;
-const GLASS_H = 250;
-const FLOOR_Y = 1745;
+/** The glass stands on the bar counter; the counter top is the floor for shadows. */
+const BASE_Y = 1880;
+const FLOOR_Y = BASE_Y;
+// Fallback geometry for the procedural glass (real glass geometry comes from the sprite).
+const FALLBACK_RIM_HALF = 104;
+const FALLBACK_GLASS_H = 250;
 const OUTRO_S = 1.5;
 const MILESTONE_EVERY = 500;
 
@@ -68,6 +70,9 @@ export class StarCatcher implements Game<StarResult> {
   private popups: Popups;
   private bg: Sprite;
   private glass: Sprite;
+  /** Catch line and half-width, from the glass art in use. */
+  private rimY: number;
+  private rimHalf: number;
   private q!: Quality;
 
   private elapsed = 0;
@@ -109,48 +114,35 @@ export class StarCatcher implements Game<StarResult> {
     this.particles = new Particles(260, sprites.particles);
     this.popups = new Popups(14, font);
     this.bg = makeSprite(W, H, (ctx) => {
-      const g = ctx.createLinearGradient(0, 0, 0, H);
-      g.addColorStop(0, "#020d06");
-      g.addColorStop(0.55, P.deep);
-      g.addColorStop(0.86, "#0a3d1b");
-      g.addColorStop(1, "#04170b");
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, W, H);
-      beams(ctx, 5, 0.06);
-      bokeh(ctx, 26, FLOOR_Y - 120);
-      // Stage floor with perspective lines converging on a vanishing point: cheap depth.
-      const fy = FLOOR_Y - 40;
-      const floor = ctx.createLinearGradient(0, fy, 0, H);
-      floor.addColorStop(0, "#0d4a20");
-      floor.addColorStop(1, "#021007");
-      ctx.fillStyle = floor;
-      ctx.fillRect(0, fy, W, H - fy);
-      ctx.strokeStyle = "rgba(120,220,120,0.14)";
-      ctx.lineWidth = 2;
-      for (let i = -8; i <= 8; i++) {
-        ctx.beginPath();
-        ctx.moveTo(W / 2 + i * 40, fy);
-        ctx.lineTo(W / 2 + i * 220, H);
-        ctx.stroke();
-      }
-      for (let i = 0; i < 6; i++) {
-        const y = fy + (H - fy) * (i / 6) ** 1.8;
-        ctx.globalAlpha = 0.6 - i * 0.08;
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(W, y);
-        ctx.stroke();
-      }
+      brandBackdrop(ctx, W / 2, H * 0.34);
+      // Giant faint official star behind the action: brand presence without clutter.
+      ctx.globalAlpha = 0.07;
+      const st = sprites.redStar;
+      ctx.drawImage(st.canvas, W / 2 - st.w * 3.4, H * 0.34 - st.h * 3.4, st.w * 6.8, st.h * 6.8);
       ctx.globalAlpha = 1;
-      const edge = ctx.createLinearGradient(0, fy - 6, 0, fy + 10);
-      edge.addColorStop(0, "rgba(160,255,160,0)");
-      edge.addColorStop(0.5, "rgba(160,255,160,0.35)");
-      edge.addColorStop(1, "rgba(160,255,160,0)");
+      beams(ctx, 5, 0.05);
+      bokeh(ctx, 30, FLOOR_Y - 160);
+      // Bar counter the glass stands on: polished dark green with a highlight edge.
+      const top = FLOOR_Y - 6;
+      const counter = ctx.createLinearGradient(0, top, 0, H);
+      counter.addColorStop(0, "#0c4a1f");
+      counter.addColorStop(0.25, "#073516");
+      counter.addColorStop(1, "#021208");
+      ctx.fillStyle = counter;
+      ctx.fillRect(0, top, W, H - top);
+      const edge = ctx.createLinearGradient(0, top - 4, 0, top + 6);
+      edge.addColorStop(0, "rgba(220,255,220,0)");
+      edge.addColorStop(0.5, "rgba(220,255,220,0.55)");
+      edge.addColorStop(1, "rgba(220,255,220,0)");
       ctx.fillStyle = edge;
-      ctx.fillRect(0, fy - 6, W, 16);
-      vignette(ctx, 0.55);
+      ctx.fillRect(0, top - 4, W, 10);
+      vignette(ctx, 0.45);
     });
-    this.glass = makeGlass();
+    // Real draught glass when brand assets loaded; procedural glass as fallback.
+    const real = sprites.glass;
+    this.glass = real ?? makeGlass();
+    this.rimHalf = real ? real.rimHalf : FALLBACK_RIM_HALF;
+    this.rimY = BASE_Y - (real ? real.rimHeight : FALLBACK_GLASS_H);
     for (let i = 0; i < 18; i++) this.deco.push({ x: rand(0, W), y: rand(0, H), v: rand(30, 90), s: rand(0.12, 0.3) });
   }
 
@@ -177,7 +169,7 @@ export class StarCatcher implements Game<StarResult> {
     let bestT = Infinity;
     for (const o of this.objs) {
       if (!o.on || o.passed || o.kind === Kind.Hazard) continue;
-      const t = (RIM_Y - o.y) / o.vy;
+      const t = (this.rimY - o.y) / o.vy;
       if (t > 0 && t < bestT && Math.abs(o.x - this.glassX) / 2600 < t + 0.15) {
         bestT = t;
         best = o;
@@ -186,8 +178,8 @@ export class StarCatcher implements Game<StarResult> {
     let x = best ? best.x : W / 2;
     for (const o of this.objs) {
       if (!o.on || o.passed || o.kind !== Kind.Hazard) continue;
-      const t = (RIM_Y - o.y) / o.vy;
-      if (t > 0 && t < 0.6 && Math.abs(o.x - x) < RIM_HALF + 70) x = o.x + (x < o.x ? -1 : 1) * (RIM_HALF + 120);
+      const t = (this.rimY - o.y) / o.vy;
+      if (t > 0 && t < 0.6 && Math.abs(o.x - x) < this.rimHalf + 70) x = o.x + (x < o.x ? -1 : 1) * (this.rimHalf + 120);
     }
     this.targetX = x;
   }
@@ -208,9 +200,10 @@ export class StarCatcher implements Game<StarResult> {
 
     // Glass follows the finger with heavy smoothing: responsive but never jittery.
     const prev = this.glassX;
-    this.glassX += (clamp(this.targetX, RIM_HALF, W - RIM_HALF) - this.glassX) * damp(26, realDt);
+    this.glassX += (clamp(this.targetX, this.rimHalf, W - this.rimHalf) - this.glassX) * damp(26, realDt);
     this.glassV = (this.glassX - prev) / realDt;
-    this.tilt += (clamp(this.glassV * 0.00035, -0.28, 0.28) - this.tilt) * damp(12, realDt);
+    // Tall glass pivots at its base, so keep the lean subtle.
+    this.tilt += (clamp(this.glassV * 0.00012, -0.1, 0.1) - this.tilt) * damp(12, realDt);
 
     this.shown += (this.score - this.shown) * damp(10, realDt);
     if (Math.abs(this.score - this.shown) < 0.5) this.shown = this.score;
@@ -312,15 +305,15 @@ export class StarCatcher implements Game<StarResult> {
       o.rot += o.vrot * dt;
       if (o.wobble) o.x = clamp(o.baseX + Math.sin(o.y * 0.006 + o.phase) * o.wobble, 60, W - 60);
 
-      if (!o.passed && o.y >= RIM_Y - 26) {
-        if (o.y <= RIM_Y + 46 && Math.abs(o.x - gx) <= RIM_HALF + 18) {
+      if (!o.passed && o.y >= this.rimY - 26) {
+        if (o.y <= this.rimY + 46 && Math.abs(o.x - gx) <= this.rimHalf + 18) {
           o.on = false;
           this.collect(o);
           continue;
         }
-        if (o.y > RIM_Y + 46) {
+        if (o.y > this.rimY + 46) {
           o.passed = true;
-          if (o.kind === Kind.Hazard && Math.abs(o.x - gx) < RIM_HALF + 120) this.dodged(o);
+          if (o.kind === Kind.Hazard && Math.abs(o.x - gx) < this.rimHalf + 120) this.dodged(o);
         }
       }
       if (o.y > H + 90) {
@@ -333,7 +326,7 @@ export class StarCatcher implements Game<StarResult> {
   private collect(o: Obj) {
     const c = this.cfg;
     const x = o.x;
-    const y = RIM_Y - 10;
+    const y = this.rimY - 10;
     this.bounce = 0.22;
     switch (o.kind) {
       case Kind.Star:
@@ -362,8 +355,8 @@ export class StarCatcher implements Game<StarResult> {
           audio.play("catch", 1 + Math.min(this.combo % c.comboStep, 8) * 0.06);
         }
         if (newMult > this.mult) {
-          this.popups.show(`x${newMult}`, this.glassX, RIM_Y - 210, P.bright, 120, 1.1, 120);
-          this.particles.burst(this.glassX, RIM_Y - 80, 24, 2, 800, { life: 0.8, up: 400 });
+          this.popups.show(`x${newMult}`, this.glassX, this.rimY - 210, P.bright, 120, 1.1, 120);
+          this.particles.burst(this.glassX, this.rimY - 80, 24, 2, 800, { life: 0.8, up: 400 });
           audio.play("combo", 1 + newMult * 0.05);
         }
         this.mult = newMult;
@@ -400,7 +393,7 @@ export class StarCatcher implements Game<StarResult> {
   private dodged(o: Obj) {
     this.stats.dodges++;
     this.addScore(this.cfg.dodgeBonus);
-    this.popups.show(`${this.labels.dodge} +${this.cfg.dodgeBonus}`, o.x, RIM_Y - 120, P.cream, 44, 0.8, 80);
+    this.popups.show(`${this.labels.dodge} +${this.cfg.dodgeBonus}`, o.x, this.rimY - 120, P.cream, 44, 0.8, 80);
     audio.play("dodge");
   }
 
@@ -460,14 +453,17 @@ export class StarCatcher implements Game<StarResult> {
     ctx.globalCompositeOperation = "source-over";
     ctx.drawImage(this.bg.canvas, 0, 0);
 
-    // Far layer: small dim stars drifting slowly = parallax depth.
+    // Far layer: small twinkles drifting slowly = parallax depth.
     if (this.q.extras) {
-      ctx.globalAlpha = 0.35;
+      const tw = s.particles[5];
+      ctx.globalCompositeOperation = "lighter";
       for (const d of this.deco) {
-        place(ctx, d.x, d.y, d.s, d.y * 0.004);
-        ctx.drawImage(s.redStar.canvas, -s.redStar.cx, -s.redStar.cy);
+        ctx.globalAlpha = 0.25 + 0.25 * Math.sin(this.elapsed * 3 + d.x);
+        place(ctx, d.x, d.y, d.s * 3.2, d.y * 0.004);
+        ctx.drawImage(tw.canvas, -tw.cx, -tw.cy);
       }
       ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = "source-over";
     }
 
     // Shadows on the floor give falling objects a ground reference.
@@ -509,7 +505,7 @@ export class StarCatcher implements Game<StarResult> {
     const g = this.glass;
     const b = this.bounce > 0 ? Math.sin((this.bounce / 0.22) * Math.PI) * 0.06 : 0;
     // Pivot at the glass base so tilt reads as momentum, squash on catch.
-    const baseY = RIM_Y + GLASS_H;
+    const baseY = BASE_Y;
     const c = Math.cos(this.tilt);
     const n = Math.sin(this.tilt);
     const sx = (1 + b) * view.s;
@@ -518,24 +514,17 @@ export class StarCatcher implements Game<StarResult> {
     if (this.mult > 1 && this.q.extras) {
       ctx.globalCompositeOperation = "lighter";
       ctx.globalAlpha = Math.min(1, 0.25 + this.mult * 0.12);
-      ctx.drawImage(this.sprites.glowGreen.canvas, -180, -GLASS_H - 160);
+      const gg = this.sprites.glowGreen;
+      ctx.drawImage(gg.canvas, -gg.cx, -(BASE_Y - this.rimY) * 0.55 - gg.cy, gg.w, gg.h);
       ctx.globalAlpha = 1;
       ctx.globalCompositeOperation = "source-over";
     }
     ctx.drawImage(g.canvas, -g.cx, -g.cy);
-    // Combo ladder inside the glass: one mini star per catch toward the next multiplier.
-    const filled = this.mult >= this.cfg.maxMultiplier ? this.cfg.comboStep : this.combo % this.cfg.comboStep;
-    const sp = this.sprites.redStar;
-    for (let i = 0; i < this.cfg.comboStep && i < 8; i++) {
-      const y = -32 - i * 26;
-      ctx.globalAlpha = i < filled ? 1 : 0.13;
-      ctx.drawImage(sp.canvas, -sp.cx * 0.3, y - sp.cy * 0.3, sp.canvas.width * 0.3, sp.canvas.height * 0.3);
-    }
-    ctx.globalAlpha = 1;
     if (this.heat > 0) {
       ctx.globalAlpha = this.heat / 0.7;
       ctx.globalCompositeOperation = "lighter";
-      ctx.drawImage(this.sprites.glowRed.canvas, -130, -GLASS_H - 80);
+      const gr = this.sprites.glowRed;
+      ctx.drawImage(gr.canvas, -gr.cx, -(BASE_Y - this.rimY) - gr.cy * 0.4);
       ctx.globalCompositeOperation = "source-over";
       ctx.globalAlpha = 1;
     }
@@ -607,6 +596,15 @@ export class StarCatcher implements Game<StarResult> {
       ctx.font = `800 64px ${this.font}`;
       ctx.fillText(`x${this.mult}`, 550, 160);
     }
+    // Combo meter: one star per catch toward the next multiplier.
+    const step = this.cfg.comboStep;
+    const filled = this.mult >= this.cfg.maxMultiplier ? step : this.combo % step;
+    const pip = this.sprites.redStar;
+    for (let i = 0; i < step && i < 10; i++) {
+      ctx.globalAlpha = i < filled ? 1 : 0.22;
+      ctx.drawImage(pip.canvas, 270 + i * 40, 146, 34, (34 * pip.h) / pip.w);
+    }
+    ctx.globalAlpha = 1;
     // Timer ring
     const cx = 930;
     const cy = 132;
@@ -634,19 +632,14 @@ export class StarCatcher implements Game<StarResult> {
     ctx.fillStyle = urgent ? "#ff6b5e" : P.cream;
     ctx.font = `800 72px ${this.font}`;
     ctx.fillText(String(Math.ceil(remaining)), 0, 0);
-    // Stage pips
-    resetView(ctx, true);
-    for (let i = 1; i <= 6; i++) {
-      ctx.fillStyle = i <= this.stage ? P.starRed : "rgba(201,207,203,0.22)";
-      starPath(ctx, 80 + (i - 1) * 44, 258, 15);
-      ctx.fill();
-    }
   }
 }
 
 /** Tall lager glass with the red star emblem. Empty on purpose: the game is about
  * collecting stars, never about filling or drinking (Responsible Marketing Code §2.1). */
 function makeGlass(): Sprite {
+  const RIM_HALF = FALLBACK_RIM_HALF;
+  const GLASS_H = FALLBACK_GLASS_H;
   const w = 240;
   const h = GLASS_H + 40;
   return makeSprite(

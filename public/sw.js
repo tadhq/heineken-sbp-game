@@ -6,8 +6,29 @@
  * The page posts the URLs it loaded so assets fetched before this worker took control
  * are cached too.
  */
-const CACHE = "hk-shell-v1";
-const SHELL = ["/", "/manifest.webmanifest", "/icon.svg"];
+// Bump when files under /assets change in place (same path, new content).
+const CACHE = "hk-shell-v2";
+const SHELL = [
+  "/",
+  "/manifest.webmanifest",
+  "/icon.svg",
+  // Brand art and sounds: needed for a fully branded game even after an offline reload.
+  "/assets/brand/heineken-logo.svg",
+  "/assets/brand/star.png",
+  "/assets/brand/enjoy-responsibly.svg",
+  "/assets/brand/glass.webp",
+  "/assets/brand/bottle.webp",
+  "/assets/brand/bottle-00.webp",
+  "/assets/brand/keg.webp",
+  "/assets/fx/star_09.png",
+  "/assets/fx/flare_01.png",
+  "/assets/fx/light_02.png",
+  "/assets/fx/star_08.png",
+  "/assets/fx/star_06.png",
+  "/assets/fx/spark_03.png",
+  "/assets/fx/star_04.png",
+  ...["tap", "tick", "go", "catch", "golden", "hazard", "chill", "dodge", "combo", "miss", "drop", "slice", "perfect", "fall", "milestone", "end", "prize"].map((n) => `/assets/sfx/${n}.ogg`),
+];
 const MAX_ENTRIES = 300;
 
 self.addEventListener("install", (event) => {
@@ -36,7 +57,7 @@ async function put(req, res) {
 }
 
 function isStatic(url) {
-  return url.pathname.startsWith("/_next/static/") || url.pathname === "/icon.svg" || url.pathname.startsWith("/brand/");
+  return url.pathname.startsWith("/_next/static/") || url.pathname === "/icon.svg" || url.pathname.startsWith("/assets/");
 }
 
 self.addEventListener("message", (event) => {

@@ -85,7 +85,6 @@ test("@soak long session stays stable", async ({ page, context }) => {
   const stored = await withDb(async (c) => Number((await c.query('SELECT count(*) FROM "GameSession" WHERE "kioskId" = $1', [kiosk.id])).rows[0].count));
   const errorsLogged = await withDb(async (c) => Number((await c.query('SELECT count(*) FROM "ClientError" WHERE "kioskId" = $1', [kiosk.id])).rows[0].count));
 
-  await putConfig(admin, original, "soak restore");
 
   const first = samples.find((s) => s.game >= 10) ?? samples[0];
   const lastUnthrottled = [...samples].reverse().find((s) => !s.throttled)!;
@@ -109,6 +108,8 @@ test("@soak long session stays stable", async ({ page, context }) => {
   };
   writeFileSync("test-results/soak.json", JSON.stringify(report, null, 2));
   console.log(JSON.stringify({ ...report, samples: undefined }, null, 2));
+  // Fresh login: the run outlives the 15-minute admin session.
+  await putConfig(await adminContext("10.6.0.2"), original, "soak restore");
 
   expect(pageErrors).toEqual([]);
   expect(errorsLogged).toBe(0);

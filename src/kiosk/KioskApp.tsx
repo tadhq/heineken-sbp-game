@@ -8,7 +8,7 @@ import type { GameResult } from "@/game/types";
 import { DEFAULT_CONFIG, type GameId, resolvePrize, type VersionedConfig } from "@/lib/config";
 import { DICTS } from "@/lib/i18n";
 import type { SessionPayload } from "@/lib/session";
-import { getIcons } from "./assets";
+import { getIcons, preloadAssets } from "./assets";
 import { store, uuid } from "./store";
 import { flush, getBoard, loadCachedConfig, logError, refreshConfig } from "./sync";
 import { GameView } from "./ui/GameView";
@@ -47,7 +47,7 @@ export function KioskApp() {
   const [screen, setScreen] = useState<Screen>({ name: "attract" });
   // Client-only component (see KioskEntry), so reading the browser here is safe.
   const [quality, setQuality] = useState<QualityLevel>(readQuality);
-  const [icons] = useState(getIcons);
+  const [icons, setIcons] = useState(getIcons);
   const [best, setBest] = useState<Partial<Record<GameId, number>>>({});
   const [online, setOnline] = useState(() => navigator.onLine);
   const router = useRouter();
@@ -68,6 +68,8 @@ export function KioskApp() {
 
   // ---------- boot ----------
   useEffect(() => {
+    // Brand art decodes in the background; menu icons switch to it as soon as it is ready.
+    preloadAssets().then(() => setIcons(getIcons()));
     loadCachedConfig().then(setVc);
     refreshConfig().then((fresh) => fresh && setVc(fresh));
     // Release any initials hold left by a crash, then upload what is waiting.
@@ -190,7 +192,9 @@ export function KioskApp() {
   const play = (game: GameId) => {
     audio.unlock();
     run.current.counter++;
-    setScreen({ name: "play", game, run: run.current.counter, started: false });
+    const runId = run.current.counter;
+    // Normally resolved long ago (boot preload); never start a round with fallback art.
+    void preloadAssets().then(() => setScreen({ name: "play", game, run: runId, started: false }));
   };
 
   const begin = () => {
