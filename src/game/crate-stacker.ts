@@ -226,7 +226,11 @@ export class CrateStacker implements Game<CrateResult> {
     ctx.fillStyle = shade;
     ctx.fillRect(0, 0, W, H);
     vignette(ctx, 0.5);
-    if (withLights) drawCones(ctx, this.sprites.lights, 0, 0.3, "stage", 0, RIG_Y, 0.7);
+    if (withLights) {
+      // Low quality: the far racking is baked in, static (no parallax blits per frame).
+      ctx.drawImage(this.far.canvas, 0, 0);
+      drawCones(ctx, this.sprites.lights, 0, 0.3, "stage", 0, RIG_Y, 0.7);
+    }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.drawImage(this.sprites.lights.rig.canvas, 0, RIG_Y);
   }
@@ -567,7 +571,7 @@ export class CrateStacker implements Game<CrateResult> {
     if (perfect) {
       this.perfectT = 0.45;
       this.zoomPulse = this.q.shake ? 1 : 0;
-      this.flashT = this.q.shake ? 0.1 : 0;
+      this.flashT = this.q.shake && this.q.extras ? 0.1 : 0;
       this.particles.burst(sx, sy, 26, 7, 820, { life: 0.8, up: 380 });
       this.particles.burst(sx, sy, 14, 2, 520, { life: 0.6, size: 1.2 });
       this.juice.ring(this.sprites.glowGold, sx, floorY, 2.2, 0.5, 0.75);
@@ -668,10 +672,10 @@ export class CrateStacker implements Game<CrateResult> {
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = "source-over";
     ctx.drawImage((this.q.extras ? this.bg : (this.bgLow ?? this.bg)).canvas, 0, 0);
-    const farOff = (this.cam * 0.25) % H;
-    ctx.drawImage(this.far.canvas, 0, farOff - H);
-    ctx.drawImage(this.far.canvas, 0, farOff);
     if (this.q.extras) {
+      const farOff = (this.cam * 0.25) % H;
+      ctx.drawImage(this.far.canvas, 0, farOff - H);
+      ctx.drawImage(this.far.canvas, 0, farOff);
       const midOff = (this.cam * 0.55) % H;
       ctx.drawImage(this.mid.canvas, 0, midOff - H);
       ctx.drawImage(this.mid.canvas, 0, midOff);

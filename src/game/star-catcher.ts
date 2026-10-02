@@ -580,7 +580,7 @@ export class StarCatcher implements Game<StarResult> {
           const rate = PENTA[Math.min(this.combo - 1, PENTA.length - 1)];
           audio.play(perfect ? "perfectCatch" : "catch", rate, 1, pan);
         }
-        if (perfect) this.popups.show(this.labels.perfect, this.glassX, this.rimY - 150, P.gold, 58, 0.7, 90);
+        if (perfect && this.q.extras) this.popups.show(this.labels.perfect, this.glassX, this.rimY - 150, P.gold, 58, 0.7, 90);
         if (newMult > this.mult) {
           this.multPop = 1;
           this.popups.show(`${this.labels.combo} x${newMult}`, W / 2, 470, P.bright, 104, 1.1, 60);
@@ -731,13 +731,14 @@ export class StarCatcher implements Game<StarResult> {
     this.shakeT = t;
     this.shakeMag = mag;
   }
+  // Full-screen overlays are a whole-screen blend each: high quality only.
   private edge(golden: boolean, t: number) {
-    if (!this.q.shake) return;
+    if (!this.q.shake || !this.q.extras) return;
     this.edgeGolden = golden;
     this.edgeT = t;
   }
   private flash(color: string, t: number) {
-    if (!this.q.shake) return;
+    if (!this.q.shake || !this.q.extras) return;
     this.flashColor = color;
     this.flashT = t;
   }
@@ -772,9 +773,9 @@ export class StarCatcher implements Game<StarResult> {
       ctx.drawImage(s.lights.rig.canvas, 0, RIG_Y);
     }
 
-    // Layer 4: gameplay.
+    // Layer 4: gameplay. Per-object floor shadows are a high-quality extra.
     for (const o of this.objs) {
-      if (!o.on || o.y > FLOOR_Y) continue;
+      if (!this.q.extras || !o.on || o.y > FLOOR_Y) continue;
       const t = clamp((o.y - RIG_Y) / (FLOOR_Y - RIG_Y), 0, 1);
       ctx.globalAlpha = 0.12 + t * 0.4;
       place(ctx, o.x, FLOOR_Y + 4, 0.25 + t * 0.35);
@@ -847,6 +848,8 @@ export class StarCatcher implements Game<StarResult> {
     ctx.globalAlpha = 1;
   }
 
+  private beerFrame = 0;
+  private beerVisible = false;
   private fullSprite: Sprite | null = null;
   /** A full glass, baked once: what the served glass looks like as it leaves. */
   private beerFull() {
@@ -880,7 +883,9 @@ export class StarCatcher implements Game<StarResult> {
       ctx.globalAlpha = 1;
       ctx.globalCompositeOperation = "source-over";
     }
-    if (this.beer.draw()) ctx.drawImage(this.beer.canvas, -g.cx, -g.cy);
+    // Low quality refreshes the liquid at half rate; the last frame is reused in between.
+    if (this.q.extras || (this.beerFrame = (this.beerFrame + 1) % 2) === 0) this.beerVisible = this.beer.draw();
+    if (this.beerVisible) ctx.drawImage(this.beer.canvas, -g.cx, -g.cy);
     ctx.drawImage(g.canvas, -g.cx, -g.cy);
     if (this.beer.crown > 0) {
       // Foam crown swelling over the rim when the glass is full.
