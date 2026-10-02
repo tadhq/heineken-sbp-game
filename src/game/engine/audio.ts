@@ -279,8 +279,9 @@ class AudioEngine {
     this.playing = null;
     if (!target) return;
     const def = TRACKS[target];
-    // Free decoded stems nothing will play soon (each 30 s stereo stem is ~12 MB of PCM).
-    for (const k of [...this.stems.keys()]) if (!def.stems.includes(k) && !TRACKS.lobby.stems.includes(k)) this.stems.delete(k);
+    // Entering a game frees the other game's stems (each 30 s stereo stem is ~12 MB of PCM).
+    // Returning to the lobby keeps the last game's: "play again" must not decode again.
+    if (target !== "lobby") for (const k of [...this.stems.keys()]) if (!def.stems.includes(k) && !TRACKS.lobby.stems.includes(k)) this.stems.delete(k);
     void Promise.all(def.stems.map((s) => this.stem(s))).then((bufs) => {
       // Another track (or silence) was requested while these decoded.
       if (this.wanted !== target || !this.musicAudible || this.playing || !bufs[0]) return;

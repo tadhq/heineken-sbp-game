@@ -147,8 +147,7 @@ All 18 are fixed and re-tested:
 - **Dev note:** running `pnpm apk:web` in the same folder as a running `next start` broke that server's chunks. Restart or rebuild the web server after building the APK.
 - **No on-device testing.** Frame rate, touch latency, `desynchronized` canvas, audio output, fullscreen and wake lock are unverified on the Android 11 kiosk.
 - **Heineken asset licence** must be confirmed by the client (ASSETS.md). The proprietary Heineken fonts are not used; PT Sans stands in.
-- **Sounds were picked by name and duration, without listening.** Someone should listen on the kiosk speaker. Swapping a sound means replacing a file in `public/assets/sfx/`.
-- Music is a simple procedural loop. A licensed music bed would raise the quality.
+- **Music and sound effects are original but nobody has listened to them yet** (checked by measurement only). Listen on the kiosk speaker; tune in `scripts/compose-audio.mjs` or replace a file with the same name.
 - The hazard (heat) and ice sprites are still procedural.
 - The crate packshot comes from a retailer CDN (Jumbo). It is Heineken's own GS1 product image, but the licence still has to come from Heineken.
 - 4-digit PIN (per the brief): about 30 guesses per hour globally makes brute force a matter of days, not minutes, and there are no alerts. Recommend 6+ digits; the code already accepts 4-8.
@@ -194,6 +193,36 @@ These numbers are a CPU-bound worst case: the real kiosk GPU does the rasterisin
 7. Pull the network, play 3 games, restore the network, and check that all 3 appear exactly once.
 8. Run a 2-hour unattended loop using `?bot`. Check memory in `chrome://inspect` remote DevTools, then check the admin for errors.
 9. Have a staff member read a prize code on the screen and find it in Prize history.
+
+## Polish pass (2026-10-02)
+
+Scope: premium UI, game feel, original audio, hidden settings with fullscreen. Gameplay rules, scoring, prize logic and sync are unchanged (no precision aid was added to Crate Stacker: it would make perfects easier and shift the prize distribution).
+
+**Environment note.** Docker Desktop stopped mid-pass, taking the usual local Postgres (:55432) down. Every DB-backed suite below ran against a throwaway Postgres 16 on :55433 (migrated and seeded fresh, timezone UTC). That database must run in UTC: in local time (-03) the login throttle window resets on every attempt and two security tests fail. Neon and the Docker image run UTC; the throttle should still compare against `now()` in SQL rather than a JS timestamp (pre-existing, not changed in this pass).
+
+| Check | Result |
+|---|---|
+| Typecheck, lint | PASS |
+| Unit (vitest) | PASS, 30/30 (4 new: audio preference resolution) |
+| E2E (`pnpm test:e2e`) | PASS, 26/26 |
+| Soak, 120 games | PASS (30.5 min): 120/120 stored, 0 errors; heap 4.89 → 5.13 MB, DOM 179 → 179, listeners 349 → 347; **1 AudioContext for the whole session**, voices ≤ 3 at every sample. A 24-game re-run after the stem-cache fix: 3 decoded stems (lobby + current game) at every sample. |
+| Perf, 6x CPU (`--grep @perf`) | See below |
+| Visual captures (`--grep @shots`, now also settings and countdown) | Reviewed at 1080x1920 |
+| Android 11 emulator, WebView 91 (debug APK) | PASS: attract, select, settings via long-press, music/effects toggles, intro, countdown and a Star Catcher round render correctly; AudioContext starts (AAudio stream opened), no console errors. Emulator uses a software GPU, so its frame rate is not meaningful. |
+| Listening test | **NOT RUN** (no one has heard the audio) |
+| Real kiosk hardware | **NOT RUN** |
+
+**Frame rate, same machine, same day** (the machine was slower than on 2026-10-01, so compare rows, not with the older numbers above):
+
+| Build | Star Catcher (high, first seconds) | Star Catcher (low) | Crate Stacker (low) |
+|---|---|---|---|
+| Before polish (46154f6) | 55-60 | ~29 | ~31 |
+| First polish build | 20 | 20 | ~26 |
+| Final (rotated far-star layer baked, one trail ghost, flat HUD plates in low quality) | 57-60 | ~26-27 | ~27-29 |
+
+Audio costs about 1-2 fps under 6x throttle (`PERF_AUDIO=0` comparison).
+
+Bugs found and fixed in this pass: far-star parallax layer and per-star halos cost ~30% frame time (baked/removed); the iris overlay hid the countdown's "3" (countdown now starts after it); "Congratulations!" in English overflowed the stage for a few frames during its entrance (gentler animation); music stems were re-decoded on every replay (cache now keeps the last game's stems).
 
 ## Final recommendation
 
