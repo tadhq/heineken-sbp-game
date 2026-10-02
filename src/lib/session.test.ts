@@ -63,3 +63,11 @@ describe("initialsAllowed", () => {
     expect(initialsAllowed("ABCD")).toBe(false);
   });
 });
+
+describe("timestamp sanity", () => {
+  it("flags sessions ending in the future", () => {
+    const now = Date.parse("2026-10-01T12:00:00Z");
+    const s = { ...(star() as Extract<SessionPayload, { game: "star" }>), endedAt: "2026-10-01T13:00:00Z", startedAt: "2026-10-01T12:59:14Z" };
+    expect(checkPlausibility(DEFAULT_CONFIG, s, now).join()).toMatch(/future/);
+  });
+});

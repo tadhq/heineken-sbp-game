@@ -87,3 +87,11 @@ describe("normalizeConfig (client cache guard)", () => {
     expect(n.prizes).toHaveLength(DEFAULT_CONFIG.prizes.length);
   });
 });
+
+describe("prize image URL", () => {
+  it("rejects backslash protocol-relative paths", () => {
+    const c = cfg();
+    c.prizes[0] = { ...c.prizes[0], imageUrl: "/\\evil.example/x.png" };
+    expect(appConfigSchema.safeParse(c).success).toBe(false);
+  });
+});

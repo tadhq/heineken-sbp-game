@@ -67,8 +67,9 @@ export const prizeSchema = z.object({
   imageUrl: z
     .string()
     .max(500)
-    .refine((v) => v === "" || v.startsWith("/") || v.startsWith("https://"), "Must be empty, a /path or an https:// URL")
-    .refine((v) => !v.startsWith("//"), "Protocol-relative URLs are not allowed"),
+    // "/\\host" and "//host" are protocol-relative in browsers, so only "/x" with a
+    // non-slash second character counts as an own path.
+    .refine((v) => v === "" || /^\/(?![/\\])/.test(v) || v.startsWith("https://"), "Must be empty, a /path or an https:// URL"),
   minScore: int(0, 10_000_000),
   /** null = no upper bound. */
   maxScore: int(0, 10_000_000).nullable(),

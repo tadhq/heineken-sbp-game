@@ -15,7 +15,7 @@ export function Panel({ title, children, actions }: { title: string; children: R
 
 export function Stat({ label, value, tone }: { label: string; value: ReactNode; tone?: "warn" }) {
   return (
-    <div className={`rounded-2xl p-4 ${tone === "warn" ? "bg-[#4a1a10]" : "bg-ink/70"}`}>
+    <div className={`rounded-2xl border p-4 ${tone === "warn" ? "border-[#7a2a1a] bg-[#4a1a10]" : "border-white/10 bg-deep/70"}`}>
       <div className="font-display text-3xl font-bold">{value}</div>
       <div className="mt-1 text-sm text-silver">{label}</div>
     </div>

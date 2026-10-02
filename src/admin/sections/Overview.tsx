@@ -53,7 +53,7 @@ export function Overview() {
               <tr>
                 <th className="py-2">Game</th>
                 <th>Sessions</th>
-                <th>Completed</th>
+                <th>Valid completed</th>
                 <th>Avg score</th>
                 <th>High score</th>
                 <th>Avg length</th>

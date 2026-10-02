@@ -85,6 +85,11 @@ self.addEventListener("fetch", (event) => {
         try {
           const res = await fetch(req, { signal: ctrl.signal });
           clearTimeout(timer);
+          if (!res.ok) {
+            // Backend outage (5xx): the cached shell beats an error page on a kiosk.
+            const cached = await caches.match("/");
+            if (cached) return cached;
+          }
           event.waitUntil(put("/", res.clone()));
           return res;
         } catch {

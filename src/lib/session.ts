@@ -24,7 +24,13 @@ export const crateStatsSchema = z.object({
 export type StarStats = z.infer<typeof starStatsSchema>;
 export type CrateStats = z.infer<typeof crateStatsSchema>;
 
-const iso = z.iso.datetime({ offset: true });
+// Sane window for kiosk timestamps (Postgres rejects year 0000; far future is nonsense).
+const iso = z.iso
+  .datetime({ offset: true })
+  .refine((v) => {
+    const y = new Date(v).getUTCFullYear();
+    return y >= 2020 && y <= 2100;
+  }, "timestamp out of range");
 
 const base = {
   id: z.uuid(),
@@ -36,7 +42,7 @@ const base = {
   completed: z.boolean(),
   /** Started within a short window after the previous result on this kiosk. */
   isReplay: z.boolean(),
-  configVersion: z.number().int().min(0),
+  configVersion: z.number().int().min(0).max(2_147_483_647),
   initials: z.string().regex(/^[A-Z]{3}$/).nullable(),
   prize: z
     .object({ awardId: z.uuid(), prizeId: z.string().min(1).max(40), prizeName: z.string().min(1).max(60) })
@@ -74,11 +80,13 @@ const MIN_SECONDS_PER_DROP = 0.2;
  * but enough that a hand-written payload with an arbitrary score gets flagged.
  * Returns the reasons a session looks implausible; empty = plausible.
  */
-export function checkPlausibility(config: AppConfig, s: SessionPayload): string[] {
+export function checkPlausibility(config: AppConfig, s: SessionPayload, receivedAt = Date.now()): string[] {
   const reasons: string[] = [];
   const start = Date.parse(s.startedAt);
   const end = Date.parse(s.endedAt);
   if (end < start) reasons.push("endedAt before startedAt");
+  // A kiosk clock running ahead would misdate awards and pollute "today" boards.
+  if (end > receivedAt + 5 * 60_000) reasons.push("endedAt in the future (kiosk clock?)");
   if (Math.abs(end - start - s.durationMs) > DURATION_SLACK_MS + s.durationMs * 0.5)
     reasons.push("durationMs inconsistent with timestamps");
   const seconds = s.durationMs / 1000;

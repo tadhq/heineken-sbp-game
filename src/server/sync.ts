@@ -62,8 +62,13 @@ async function storeSession(kioskId: string, s: SessionPayload, config: AppConfi
     });
     return "stored";
   } catch (e) {
-    // Unique violation on the session or award id: this record was synced before.
-    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") return "duplicate";
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      // Unique violation. A genuine re-send means this session already exists; anything
+      // else (an award id reused by a different session) must not be acknowledged.
+      const existing = await db.gameSession.findUnique({ where: { id: s.id }, select: { id: true } });
+      if (existing) return "duplicate";
+      throw new Error("award id already used by another session");
+    }
     throw e;
   }
 }
@@ -79,9 +84,16 @@ export async function ingestBatch(kioskId: string, batch: z.infer<typeof rawBatc
       result.rejected.push({ id, reason: parsed.error.issues[0]?.message ?? "invalid" });
       continue;
     }
-    const config = await getConfigVersion(parsed.data.configVersion, configs);
-    await storeSession(kioskId, parsed.data, config);
-    result.accepted.push(parsed.data.id);
+    // One bad record must never block the rest of a kiosk's queue (poison pill): store
+    // each independently and report failures as rejected instead of failing the batch.
+    try {
+      const config = await getConfigVersion(parsed.data.configVersion, configs);
+      await storeSession(kioskId, parsed.data, config);
+      result.accepted.push(parsed.data.id);
+    } catch (e) {
+      console.error("[sync] record failed", parsed.data.id, e);
+      result.rejected.push({ id: parsed.data.id, reason: e instanceof Error ? e.message.slice(0, 200) : "store_failed" });
+    }
   }
 
   const errors = (batch.errors ?? []).flatMap((e) => {

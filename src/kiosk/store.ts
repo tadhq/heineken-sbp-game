@@ -111,6 +111,28 @@ function getBackend(): Promise<Backend> {
   return backend;
 }
 
+/**
+ * Critical writes (finished games): if IndexedDB fails mid-run (quota, corrupted
+ * profile), switch to localStorage/memory for the rest of the page's life and retry, so
+ * the record still exists and still syncs. Returns false only if even that failed.
+ */
+async function durablePut(store: StoreName, key: string, value: unknown): Promise<boolean> {
+  try {
+    await (await getBackend()).put(store, key, value);
+    return true;
+  } catch (e) {
+    console.error("[store] write failed, falling back to local storage", e);
+    storageMode = "localstorage";
+    backend = Promise.resolve(localBackend());
+    try {
+      await (await backend).put(store, key, value);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
 /** Wrap every call: a storage failure is logged, never thrown into the UI. */
 async function safe<T>(fn: (b: Backend) => Promise<T>, fallback: T): Promise<T> {
   try {
@@ -123,7 +145,7 @@ async function safe<T>(fn: (b: Backend) => Promise<T>, fallback: T): Promise<T> 
 
 export const store = {
   addSession: (payload: SessionPayload, hold: boolean) =>
-    safe((b) => b.put("outbox", payload.id, { id: payload.id, payload, hold, createdAt: Date.now() } satisfies OutboxItem), undefined),
+    durablePut("outbox", payload.id, { id: payload.id, payload, hold, createdAt: Date.now() } satisfies OutboxItem),
   updateSession: (id: string, patch: Partial<SessionPayload>, hold = false) =>
     safe(async (b) => {
       const item = await b.get<OutboxItem>("outbox", id);

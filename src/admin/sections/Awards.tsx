@@ -137,7 +137,9 @@ export function Awards({ prizes, timeZone }: { prizes: Prize[]; timeZone: string
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {totals.map(([id, t]) => (
               <div key={id} className="rounded-xl bg-ink/60 px-4 py-3">
-                <div className="font-bold">{t.name}</div>
+                <div className="font-bold">
+                  {t.name} <span className="font-mono text-xs font-normal text-silver">{id}</span>
+                </div>
                 <div className="text-sm text-silver">
                   <span className="font-display text-2xl font-bold text-cream">{t.awarded}</span> awarded
                   {t.voided > 0 && <span> · {t.voided} voided</span>}

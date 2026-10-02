@@ -100,6 +100,8 @@ async function doFlush(): Promise<SyncStatus> {
         if (!r.id) continue;
         const item = batch.find((b) => b.id === r.id);
         if (item) await store.set(`rejected:${r.id}`, { ...item, reason: r.reason });
+        // Make it visible in the admin "kiosk errors" count instead of vanishing quietly.
+        logError(`sync rejected ${r.id}: ${r.reason}`, "sync");
         await store.removeSession(r.id);
       }
       for (const e of errBatch) await store.removeError(e.id);

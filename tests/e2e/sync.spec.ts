@@ -109,3 +109,20 @@ test("CSV cells cannot become spreadsheet formulas", async () => {
   const line = text.split("\r\n").find((l) => l.startsWith(p.awardId))!;
   expect(line).toContain(`"'=HYPERLINK(""http://x"")"`);
 });
+
+test("a reused award id is rejected without blocking the rest of the batch", async () => {
+  const admin = await adminContext("10.3.0.7");
+  const { token } = await pairKiosk(admin);
+  const kiosk = await request.newContext({ baseURL: BASE, extraHTTPHeaders: { authorization: `Bearer ${token}` } });
+  const p = award();
+  const a = starSession({ prize: p });
+  const b = starSession({ prize: p }); // different session, same award id
+  const c = starSession();
+  const res = await kiosk.post("/api/kiosk/sync", { data: { sessions: [a, b, c] } });
+  expect(res.status()).toBe(200);
+  const body = await res.json();
+  expect(body.accepted).toEqual([a.id, c.id]);
+  expect(body.rejected.map((r: { id: string }) => r.id)).toEqual([b.id]);
+  const n = await withDb(async (cl) => Number((await cl.query('SELECT count(*) FROM "GameSession" WHERE id = $1', [b.id])).rows[0].count));
+  expect(n).toBe(0);
+});

@@ -48,6 +48,9 @@ export async function registerSuccess(ip: string): Promise<void> {
 }
 
 export function clientIp(req: Request): string {
-  // Vercel sets x-forwarded-for; the first entry is the client.
-  return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "unknown";
+  // Vercel overwrites x-forwarded-for with the real client (first entry). Elsewhere the
+  // header is spoofable, which only yields fresh per-IP buckets; the global bucket still
+  // applies. Capped so a junk header cannot bloat the table key.
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "unknown";
+  return ip.slice(0, 64);
 }

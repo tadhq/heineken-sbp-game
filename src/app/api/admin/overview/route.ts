@@ -16,15 +16,22 @@ export const GET = adminRoute(async (req) => {
   const awardWhere = range.gte || range.lt ? { awardedAt: range } : {};
   const todayStart = startOfDay(Date.now(), tz);
 
-  const [perGame, completedPerGame, replays, prizeCounts, awardsToday, flagged, recent, kiosks, errors24h] = await Promise.all([
+  const [perGame, completedPerGame, completedAll, replays, prizeCounts, awardsToday, flagged, recent, kiosks, errors24h] = await Promise.all([
+    // Flagged (implausible) sessions are counted as played but never feed score stats.
     db.gameSession.groupBy({
       by: ["game"],
       where: sessionWhere,
       _count: { _all: true },
       _avg: { durationMs: true },
+    }),
+    db.gameSession.groupBy({
+      by: ["game"],
+      where: { ...sessionWhere, completed: true, flags: { isEmpty: true } },
+      _count: { _all: true },
+      _avg: { score: true },
       _max: { score: true },
     }),
-    db.gameSession.groupBy({ by: ["game"], where: { ...sessionWhere, completed: true }, _count: { _all: true }, _avg: { score: true } }),
+    db.gameSession.count({ where: { ...sessionWhere, completed: true } }),
     db.gameSession.count({ where: { ...sessionWhere, isReplay: true } }),
     db.prizeAward.groupBy({ by: ["prizeId", "prizeName", "game"], where: { ...awardWhere, status: "awarded" }, _count: { _all: true } }),
     db.prizeAward.count({ where: { status: "awarded", awardedAt: { gte: todayStart } } }),
@@ -56,7 +63,7 @@ export const GET = adminRoute(async (req) => {
       sessions: all?._count._all ?? 0,
       completed: done?._count._all ?? 0,
       avgScore: Math.round(done?._avg.score ?? 0),
-      highScore: all?._max.score ?? 0,
+      highScore: done?._max.score ?? 0,
       avgDurationSec: Math.round((all?._avg.durationMs ?? 0) / 100) / 10,
     };
   });
@@ -67,7 +74,7 @@ export const GET = adminRoute(async (req) => {
     timezone: tz,
     totals: {
       sessions: totalSessions,
-      completionRate: totalSessions ? games.reduce((a, g) => a + g.completed, 0) / totalSessions : 0,
+      completionRate: totalSessions ? completedAll / totalSessions : 0,
       replayRate: totalSessions ? replays / totalSessions : 0,
       prizesAwarded: prizeCounts.reduce((a, p) => a + p._count._all, 0),
       prizesToday: awardsToday,

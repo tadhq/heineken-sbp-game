@@ -224,7 +224,7 @@ export function KioskApp() {
     } as SessionPayload;
     const askInitials = boardEligible(game) && k.leaderboardInitials && result.score > 0;
     // Persist BEFORE revealing anything: the prize record must survive a crash or refresh.
-    await store.addSession(payload, askInitials);
+    if (!(await store.addSession(payload, askInitials))) logError(`session ${payload.id} could not be stored`, "storage");
 
     let isBest = false;
     let initials: "no" | "ask" = "no";
