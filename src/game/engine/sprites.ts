@@ -300,19 +300,6 @@ export function createSharedSprites(img: BrandImages | null) {
       ctx.drawImage(fx.star_09, size * 0.58, size * 0.16, size * 0.3, size * 0.3);
     });
   })();
-  // Star Catcher catcher: the EMPTY Heineken glass. Source is 432x648 with the glass at
-  // x 124-307, opening at y 45, base at y 606 (alpha bbox); crop to it and scale so the
-  // glass is 180 px wide on screen, keeping the geometry for collisions.
-  const G = { sx: 104, sy: 20, sw: 223, sh: 615, glassX: 124, glassW: 183, rimY: 45, baseY: 606 };
-  const u = img.glass.naturalWidth / 432;
-  const k = 180 / G.glassW;
-  const gw = G.sw * k;
-  const gh = G.sh * k;
-  const catcher = {
-    ...makeSprite(gw, gh, (ctx) => ctx.drawImage(img.glass, G.sx * u, G.sy * u, G.sw * u, G.sh * u, 0, 0, gw, gh), (G.glassX + G.glassW / 2 - G.sx) * k, (G.baseY - G.sy) * k),
-    rimHalf: (G.glassW * k) / 2,
-    rimHeight: (G.baseY - G.rimY) * k,
-  } as GlassSprite;
   const [wx, wy, ww, wh] = logoRect(LOGO_WORDMARK);
   return {
     ...base,
@@ -336,7 +323,8 @@ export function createSharedSprites(img: BrandImages | null) {
     glowIce: tint(fx.light_02, 300, P.ice, 0.8),
     ring: tint(fx.star_06, 256, "#ffffff"),
     // Real glass photo, baked at on-screen size (the source has wide transparent margins).
-    glass: catcher as GlassSprite | null,
+    // Star Catcher draws its own empty glass (owner preferred it over photo-based glasses).
+    glass: null as GlassSprite | null,
     /** Crate packshot for Crate Stacker (drawn with per-crate source crops when sliced). */
     crateImage: img.crate as HTMLImageElement | null,
     wordmark: makeSprite(ww / LOGO_SCALE_FOR_CRATE, wh / LOGO_SCALE_FOR_CRATE, (ctx) => ctx.drawImage(img.logo, wx, wy, ww, wh, 0, 0, ww / LOGO_SCALE_FOR_CRATE, wh / LOGO_SCALE_FOR_CRATE)),

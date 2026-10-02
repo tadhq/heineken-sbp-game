@@ -138,7 +138,7 @@ export class StarCatcher implements Game<StarResult> {
       ctx.fillRect(0, top - 4, W, 10);
       vignette(ctx, 0.45);
     });
-    // Real draught glass when brand assets loaded; procedural glass as fallback.
+    // Drawn empty glass (red star emblem); a sprite-supplied catcher can override it.
     const real = sprites.glass;
     this.glass = real ?? makeGlass();
     this.rimHalf = real ? real.rimHalf : FALLBACK_RIM_HALF;
@@ -639,7 +639,7 @@ export class StarCatcher implements Game<StarResult> {
 
 /** Tall lager glass with the red star emblem. Empty on purpose: the game is about
  * collecting stars, never about filling or drinking (Responsible Marketing Code §2.1). */
-function makeGlass(): Sprite {
+export function makeGlass(): Sprite {
   const RIM_HALF = FALLBACK_RIM_HALF;
   const GLASS_H = FALLBACK_GLASS_H;
   const w = 240;

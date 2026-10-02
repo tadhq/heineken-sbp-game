@@ -1,4 +1,5 @@
 import { brandImages, ensureBrandImages } from "@/game/engine/brand-assets";
+import { makeGlass } from "@/game/star-catcher";
 import { createSharedSprites, makeSprite, type SharedSprites, type Sprite, STAR_R } from "@/game/engine/sprites";
 import type { RuleIcon } from "@/lib/i18n";
 
@@ -48,6 +49,13 @@ export function getIcons(): Record<RuleIcon, string> {
     crate: crateUrl ?? url(crate.canvas),
   };
   return icons;
+}
+
+let glassIcon: string | null = null;
+/** The same drawn glass the game uses, for the menu card. */
+export function getGlassIcon(): string {
+  glassIcon ??= makeGlass().canvas.toDataURL("image/png");
+  return glassIcon;
 }
 
 /** Canvas needs the real (hashed) family name next/font generated. */

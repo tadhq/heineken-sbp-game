@@ -124,7 +124,7 @@ All 18 are fixed and re-tested:
 20. The catcher is the official Heineken crate (3/4 packshot). Stars drop into its open top, and the play geometry comes from the photo.
 21. Official GS1 packshot of the Heineken 24x30cl crate (EAN 8712000033040). Crate Stacker stacks the photo, and slicing cuts through the photo itself, so the overhang falls off as part of the real crate.
 22. Fixed text slots between the HUD and the crate.
-23. No empty-glass packshot exists, so the official heineken.com glass photo was processed into an empty glass. The beer and foam become clear glass; the label, star, ornament, base and embossing are kept. The catch geometry is measured from the image's alpha bounds.
+23. A photo-derived empty glass was tried and rejected by the owner. Reverted to the drawn empty glass (shorter, wider, red star emblem), which is also used on the select card.
 
 ## Remaining known issues
 
