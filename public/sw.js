@@ -7,7 +7,7 @@
  * are cached too.
  */
 // Bump when files under /assets change in place (same path, new content).
-const CACHE = "hk-shell-v3";
+const CACHE = "hk-shell-v4";
 const SHELL = [
   "/",
   "/manifest.webmanifest",
@@ -17,6 +17,7 @@ const SHELL = [
   "/assets/brand/star.png",
   "/assets/brand/enjoy-responsibly.svg",
   "/assets/brand/crate.webp",
+  "/assets/brand/glass-empty.webp",
   "/assets/brand/bottle.webp",
   "/assets/fx/star_09.png",
   "/assets/fx/flare_01.png",

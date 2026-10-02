@@ -87,6 +87,7 @@ Date: 2026-10-01/02. Build: Next.js 16.3.8 production build (`pnpm build && pnpm
 | 20 | Visual | Star Catcher catcher was a beer-filled glass (wrong object; also off-message for responsible marketing) | owner feedback |
 | 21 | Visual | Crates were drawn, not the real Heineken crate | owner feedback |
 | 22 | Visual | Crate Stacker feedback text (PERFECT, xN, streak, milestone) overlapped each other and the hovering crate | 1080x1920 captures |
+| 23 | Visual | Owner wants an empty Heineken glass as the Star Catcher catcher (not a crate, not a filled glass) | owner feedback |
 
 Test-harness bugs (fixed, not app bugs):
 
@@ -123,6 +124,7 @@ All 18 are fixed and re-tested:
 20. The catcher is the official Heineken crate (3/4 packshot). Stars drop into its open top, and the play geometry comes from the photo.
 21. Official GS1 packshot of the Heineken 24x30cl crate (EAN 8712000033040). Crate Stacker stacks the photo, and slicing cuts through the photo itself, so the overhang falls off as part of the real crate.
 22. Fixed text slots between the HUD and the crate.
+23. No empty-glass packshot exists, so the official heineken.com glass photo was processed into an empty glass. The beer and foam become clear glass; the label, star, ornament, base and embossing are kept. The catch geometry is measured from the image's alpha bounds.
 
 ## Remaining known issues
 

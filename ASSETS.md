@@ -16,9 +16,10 @@ These assets were included **at the project owner's request**, on the basis that
 | `brand/star.png` | Derived from the logo above | Official red star with white keyline, 512x488 PNG | As above | "EST."/"1873" erased, tight-cropped (script in git history, commit "Real brand assets") | All in-game stars, the golden-star variant, menu stars |
 | `brand/enjoy-responsibly.svg` | https://www.heineken.com/media/e0uigisg/enjoy-responsibly.svg | Responsible-consumption "e" mark | As above | None (7.4 KB) | Footer of every player screen |
 | `brand/crate.webp` | https://www.jumbo.com/dam-images/Products/25032024_1711381870774_1711381878587_8712000033040_5.png (official GS1 packshot of Heineken 24x30cl crate, EAN 8712000033040, as distributed to retailers) | Product photo, 3/4 view crate with bottle caps | Heineken trademark/copyright, client licence required | 2246x1644 PNG (5 MB) → 1000x732 WebP q88 (68 KB) | Crate Stacker crates (sliced through the photo), Star Catcher catcher, menus and hero |
+| `brand/glass-empty.webp` | Derived from https://www.heineken.com/media/4ftncelb/heineken-draught-glass.png | Empty Heineken glass | As above | No empty-glass packshot exists publicly (shops and Beerwulf only show filled glasses). The beer and foam were digitally replaced with clear glass (refraction edges, rim ellipse). The official label, star, ornament, base and embossing highlights are kept from the photo. 432x648 WebP q90 (38 KB). The generator script is described in QA_REPORT, bug 23. | Star Catcher catcher, select card |
 | `brand/bottle.webp` | https://www.heineken.com/media/iene2ygx/heineken-original-bottle.png | Product photo, Heineken Original bottle | As above | 1506x2258 PNG (2.0 MB) → 733x1100 WebP q84 (91 KB) | Attract hero, next to the crate |
 
-Removed after review: the draught glass (a beer-filled glass is the wrong object to catch stars in), the keg, the can and the 0.0 bottle (unused).
+Removed after review: the filled draught glass (the owner wanted an empty glass, see above), the keg, the can and the 0.0 bottle (unused).
 
 Brand colours taken from these files: the star red `#E3000F` (logo SVG, class `st0`), and the brand-green radial `#4FAA33` → `#105D25`, sampled from https://www.heineken.com/media/wzsdqeus/gradient-wide-green.jpg.
 

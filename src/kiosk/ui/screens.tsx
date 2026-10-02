@@ -100,8 +100,8 @@ export function Select({
       <OfficialStar size={110} className="absolute left-[70px] top-[36px] rotate-[-12deg]" />
       <OfficialStar size={80} className="absolute right-[70px] top-[70px] rotate-[14deg]" />
       <OfficialStar size={62} className="absolute left-[200px] top-[170px] rotate-[6deg]" />
-      {/* eslint-disable-next-line @next/next/no-img-element -- official crate packshot (the catcher) */}
-      <img src="/assets/brand/crate.webp" alt="" draggable={false} className="absolute bottom-[34px] left-1/2 w-[340px] -translate-x-1/2" style={{ filter: "drop-shadow(0 26px 26px rgba(0,25,8,0.5))" }} />
+      {/* eslint-disable-next-line @next/next/no-img-element -- empty Heineken glass (the catcher) */}
+      <img src="/assets/brand/glass-empty.webp" alt="" draggable={false} className="absolute bottom-[-40px] left-1/2 h-[470px] w-auto -translate-x-1/2" style={{ filter: "drop-shadow(0 26px 26px rgba(0,25,8,0.45))" }} />
     </>
   );
   // Real crates stacked: each covers the open top of the one below (rim at 20% height).

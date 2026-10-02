@@ -1,5 +1,5 @@
 import { H, W } from "./math";
-import { type BrandImages, CRATE_RIM, LOGO_WORDMARK, logoRect } from "./brand-assets";
+import { type BrandImages, LOGO_WORDMARK, logoRect } from "./brand-assets";
 import { PALETTE as P } from "./palette";
 
 /**
@@ -300,13 +300,18 @@ export function createSharedSprites(img: BrandImages | null) {
       ctx.drawImage(fx.star_09, size * 0.58, size * 0.16, size * 0.3, size * 0.3);
     });
   })();
-  // Star Catcher catcher: the real crate, 300 px wide, anchored at its bottom centre.
-  const cw = 300;
-  const ch = (cw * img.crate.naturalHeight) / img.crate.naturalWidth;
+  // Star Catcher catcher: the EMPTY Heineken glass. Source is 432x648 with the glass at
+  // x 124-307, opening at y 45, base at y 606 (alpha bbox); crop to it and scale so the
+  // glass is 180 px wide on screen, keeping the geometry for collisions.
+  const G = { sx: 104, sy: 20, sw: 223, sh: 615, glassX: 124, glassW: 183, rimY: 45, baseY: 606 };
+  const u = img.glass.naturalWidth / 432;
+  const k = 180 / G.glassW;
+  const gw = G.sw * k;
+  const gh = G.sh * k;
   const catcher = {
-    ...makeSprite(cw, ch, (ctx) => ctx.drawImage(img.crate, 0, 0, cw, ch), cw / 2, ch),
-    rimHalf: cw * 0.46,
-    rimHeight: ch * (1 - CRATE_RIM),
+    ...makeSprite(gw, gh, (ctx) => ctx.drawImage(img.glass, G.sx * u, G.sy * u, G.sw * u, G.sh * u, 0, 0, gw, gh), (G.glassX + G.glassW / 2 - G.sx) * k, (G.baseY - G.sy) * k),
+    rimHalf: (G.glassW * k) / 2,
+    rimHeight: (G.baseY - G.rimY) * k,
   } as GlassSprite;
   const [wx, wy, ww, wh] = logoRect(LOGO_WORDMARK);
   return {
