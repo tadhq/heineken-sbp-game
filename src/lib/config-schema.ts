@@ -103,6 +103,11 @@ export const kioskConfigSchema = z.object({
   ageGate: z
     .object({ enabled: z.boolean(), minAge: int(16, 25), denyCooldownSec: int(0, 600) })
     .default({ enabled: false, minAge: 18, denyCooldownSec: 60 }),
+  /**
+   * Default mix (0-1 each). Players can change it from the hidden settings panel; their
+   * values are kept on the device until an admin changes these defaults.
+   */
+  audio: z.object({ master: num(0, 1), music: num(0, 1), sfx: num(0, 1) }).default({ master: 0.9, music: 0.6, sfx: 0.85 }),
 });
 
 export const appConfigSchema = z

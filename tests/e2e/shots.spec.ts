@@ -22,6 +22,17 @@ test("@shots kiosk screens at 1080x1920", async ({ page }) => {
     await waitScreen(page, "attract");
     await page.waitForTimeout(1500);
     await page.screenshot({ path: `${OUT}/01-attract.png` });
+    // Hidden settings: hold the bottom-right corner.
+    const spot = page.locator('[data-hotspot="settings"]');
+    await spot.hover({ position: { x: 60, y: 60 } });
+    await page.mouse.down();
+    await page.waitForTimeout(1500);
+    await page.mouse.up();
+    await page.getByRole("dialog").waitFor();
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: `${OUT}/01b-settings.png` });
+    await page.getByRole("dialog").getByRole("button", { name: /^(sluiten|close)$/i }).last().click();
+    await page.getByRole("dialog").waitFor({ state: "detached" });
     await page.locator('[data-screen="attract"]').click({ position: { x: 540, y: 1500 } });
     await waitScreen(page, "select");
     await page.waitForTimeout(900);
@@ -39,13 +50,17 @@ test("@shots kiosk screens at 1080x1920", async ({ page }) => {
       await waitScreen(page, "play");
       await page.waitForTimeout(300);
       await page.screenshot({ path: `${OUT}/04-${n}-countdown.png` });
-      await page.waitForTimeout(2200);
+      await page.waitForTimeout(1750);
+      await page.screenshot({ path: `${OUT}/04b-${n}-go.png` });
+      await page.waitForTimeout(450);
       for (const t of [3, 9, 18]) {
         await page.waitForTimeout(t === 3 ? 3000 : 6000);
         if (await page.locator('[data-screen="play"]').isVisible()) await page.screenshot({ path: `${OUT}/05-${n}-play-${t}s.png` });
       }
       await waitScreen(page, "result", 200_000);
-      await page.waitForTimeout(2200);
+      await page.waitForTimeout(600);
+      await page.screenshot({ path: `${OUT}/06a-${n}-result-count.png` });
+      await page.waitForTimeout(2600);
       await page.screenshot({ path: `${OUT}/06-${n}-result.png` });
       const skip = page.getByRole("button", { name: /overslaan|skip/i });
       if (await skip.isVisible().catch(() => false)) await skip.click();

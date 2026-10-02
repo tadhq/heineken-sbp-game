@@ -13,6 +13,8 @@ export type GameLabels = {
   score: string;
   height: string;
   tapToDrop: string;
+  combo: string;
+  unstable: string;
 };
 
 export type StarResult = { game: "star"; score: number; stats: StarStats; elapsedMs: number };

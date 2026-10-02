@@ -1,4 +1,4 @@
-import type { CrateConfig, GameId, KioskConfig, StarConfig, VersionedConfig } from "@/lib/config";
+import { type CrateConfig, DEFAULT_CONFIG, type GameId, type KioskConfig, type StarConfig, type VersionedConfig } from "@/lib/config";
 import { btnGhost, btnPrimary, Field, input, Notice, Panel } from "./ui";
 import { useConfigDraft } from "./useConfigDraft";
 
@@ -134,10 +134,47 @@ export function KioskSettings({ vc, onSaved }: { vc: VersionedConfig; onSaved: (
         </div>
         <div className="mt-4 grid gap-1 sm:grid-cols-2">
           {toggle("soundEnabled", "Sound effects")}
-          {toggle("musicEnabled", "Music during play")}
+          {toggle("musicEnabled", "Music")}
           {toggle("effectsEnabled", "Visual effects (shake, flashes, glows)")}
           {toggle("requestFullscreen", "Go fullscreen on first tap")}
           {toggle("prizesEnabled", "Prize system")}
+        </div>
+      </Panel>
+      <Panel
+        title="Audio"
+        actions={
+          <button
+            type="button"
+            className={btnGhost}
+            onClick={() => set({ audio: DEFAULT_CONFIG.kiosk.audio, soundEnabled: DEFAULT_CONFIG.kiosk.soundEnabled, musicEnabled: DEFAULT_CONFIG.kiosk.musicEnabled })}
+          >
+            Restore defaults
+          </button>
+        }
+      >
+        <p className="mb-3 text-sm text-silver">
+          Default mix for every kiosk. Staff can adjust a single kiosk from its hidden settings (hold the bottom-right corner for about a second); that change stays on the device
+          until you save new defaults here. Switching music or effects off above also locks them off on the kiosk.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {(
+            [
+              ["master", "Master volume"],
+              ["music", "Music volume"],
+              ["sfx", "Effects volume"],
+            ] as const
+          ).map(([key, label]) => (
+            <Field key={key} label={`${label}: ${Math.round(k.audio[key] * 100)}%`}>
+              <input
+                type="range"
+                className="h-11 w-full accent-bright"
+                min={0}
+                max={100}
+                value={Math.round(k.audio[key] * 100)}
+                onChange={(e) => set({ audio: { ...k.audio, [key]: Number(e.target.value) / 100 } })}
+              />
+            </Field>
+          ))}
         </div>
       </Panel>
       <Panel title="Leaderboard">

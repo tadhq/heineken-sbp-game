@@ -103,6 +103,21 @@ const nl = {
     openAdmin: "Online beheer",
     close: "Sluiten",
   },
+  settings: {
+    title: "Instellingen",
+    master: "Hoofdvolume",
+    music: "Muziek",
+    sfx: "Effecten",
+    on: "Aan",
+    off: "Uit",
+    fullscreen: "Volledig scherm",
+    exitFullscreen: "Volledig scherm uit",
+    fsUnavailable: "Volledig scherm werkt niet in deze browser",
+    close: "Sluiten",
+    byAdmin: "Uitgezet door beheer",
+  },
+  promos: ["Vang de sterren", "Stapel de kratten", "Win mooie prijzen", "Pak de topscore"],
+  scoreLocked: "Score vastgelegd",
   offline: "Offline: scores worden later gesynchroniseerd",
   recovering: "Even geduld, we starten opnieuw",
   game: {
@@ -117,6 +132,8 @@ const nl = {
     score: "SCORE",
     height: "HOOGTE",
     tapToDrop: "TIK OM TE LATEN VALLEN",
+    combo: "COMBO",
+    unstable: "WANKEL!",
   } satisfies GameLabels,
 };
 
@@ -220,6 +237,21 @@ const en: Dict = {
     openAdmin: "Online admin",
     close: "Close",
   },
+  settings: {
+    title: "Settings",
+    master: "Master volume",
+    music: "Music",
+    sfx: "Sound effects",
+    on: "On",
+    off: "Off",
+    fullscreen: "Fullscreen",
+    exitFullscreen: "Exit fullscreen",
+    fsUnavailable: "Fullscreen is not supported in this browser",
+    close: "Close",
+    byAdmin: "Turned off by admin",
+  },
+  promos: ["Catch the stars", "Stack the crates", "Win great prizes", "Beat the high score"],
+  scoreLocked: "Score locked in",
   offline: "Offline: scores will sync later",
   recovering: "One moment, restarting",
   game: {
@@ -234,6 +266,8 @@ const en: Dict = {
     score: "SCORE",
     height: "HEIGHT",
     tapToDrop: "TAP TO DROP",
+    combo: "COMBO",
+    unstable: "WOBBLY!",
   },
 };
 

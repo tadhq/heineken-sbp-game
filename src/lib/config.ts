@@ -78,6 +78,7 @@ export const DEFAULT_CONFIG: AppConfig = {
     leaderboardSize: 10,
     leaderboardInitials: true,
     ageGate: { enabled: false, minAge: 18, denyCooldownSec: 60 },
+    audio: { master: 0.9, music: 0.6, sfx: 0.85 },
   },
   prizes: [
     { id: "star-t1", name: "Prize Tier 1", description: "Placeholder prize", imageUrl: "", minScore: 400, maxScore: 799, games: ["star"], active: true },

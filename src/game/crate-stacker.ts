@@ -1,6 +1,7 @@
 import type { CrateConfig } from "@/lib/config";
 import type { CrateStats } from "@/lib/session";
 import { audio } from "./engine/audio";
+import { drawNumber, drawPlate, Juice, makeChip, makePlate } from "./engine/hud";
 import { clamp, damp, easeOutCubic, H, lerp, place, rand, resetView, view, W } from "./engine/math";
 import { PALETTE as P } from "./engine/palette";
 import { Particles } from "./engine/particles";
@@ -34,6 +35,7 @@ const MIN_X = 70;
 const MAX_X = W - 70 - DX;
 const OUTRO_S = 2.4;
 const IDLE_END_S = 15;
+const SCORE_AT = { x: 170, y: 160 };
 
 /** u0..u1: which horizontal slice of the crate photo this crate shows (slicing cuts the photo). */
 type Crate = { x: number; w: number; u0: number; u1: number };
@@ -82,6 +84,20 @@ export class CrateStacker implements Game<CrateResult> {
   private bonusShown = false;
   /** Seconds since the last tap: a walked-away player ends the run instead of blocking the kiosk. */
   private idle = 0;
+  private juice = new Juice();
+  private scorePlate: Sprite;
+  private heightPlate: Sprite;
+  private chips = new Map<number, Sprite>();
+  /** Contact shadow where a crate sits on the one below. */
+  private ao: Sprite;
+  private scoreBump = 0;
+  private multPop = 0;
+  /** Camera "kick" on landing: a damped spring, render-only. */
+  private kick = 0;
+  private kickV = 0;
+  private zoomPulse = 0;
+  /** Narrow or leaning tower: extra render-only sway and a one-time warning. */
+  private unstable = false;
 
   constructor(
     private cfg: CrateConfig,
@@ -99,6 +115,26 @@ export class CrateStacker implements Game<CrateResult> {
     // Tileable far layer, scrolled at a fraction of camera speed for parallax.
     this.far = makeSprite(W, H, (ctx) => {
       bokeh(ctx, 22, H, 42);
+      // Distant warehouse racking: tall uprights with cross-bracing, barely there.
+      ctx.strokeStyle = "rgba(170,255,170,0.05)";
+      ctx.lineWidth = 6;
+      for (const x of [90, 300, 780, 990]) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, H);
+        ctx.stroke();
+      }
+      ctx.lineWidth = 3;
+      for (const [a, b] of [[90, 300], [780, 990]])
+        for (let y = 0; y < H; y += 320) {
+          ctx.beginPath();
+          ctx.moveTo(a, y);
+          ctx.lineTo(b, y + 160);
+          ctx.lineTo(a, y + 320);
+          ctx.moveTo(a, y + 160);
+          ctx.lineTo(b, y + 160);
+          ctx.stroke();
+        }
       ctx.fillStyle = "rgba(255,255,255,0.5)";
       let s = 9;
       const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
@@ -142,9 +178,24 @@ export class CrateStacker implements Game<CrateResult> {
       this.crateH = cfg.startWidth * aspect * (1 - CRATE_RIM);
       this.crateTop = cfg.startWidth * aspect * CRATE_RIM;
     }
+    this.scorePlate = makePlate(620, 168, 34, P.starRed);
+    this.heightPlate = makePlate(320, 168, 34);
+    this.ao = makeSprite(4, 32, (ctx) => {
+      const g = ctx.createLinearGradient(0, 0, 0, 32);
+      g.addColorStop(0, "rgba(0,18,6,0.55)");
+      g.addColorStop(1, "rgba(0,18,6,0)");
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, 4, 32);
+    });
     this.stack.push({ x: W / 2 - cfg.startWidth / 2 - (this.img ? 0 : DX / 2), w: cfg.startWidth, u0: 0, u1: 1 });
     this.spawnMover();
     this.hintT = 99;
+  }
+
+  private chip(n: number) {
+    let c = this.chips.get(n);
+    if (!c) this.chips.set(n, (c = makeChip(`x${n}`, this.font)));
+    return c;
   }
 
   setQuality(q: Quality) {
@@ -167,6 +218,7 @@ export class CrateStacker implements Game<CrateResult> {
     this.dropY = 0;
     this.dropV = 900;
     this.hintT = Math.min(this.hintT, 0.3);
+    audio.play("drop", 1, 0.8, ((this.mover.x + this.mover.w / 2) / W - 0.5) * 0.8);
   }
 
   private botAim = 0;
@@ -214,6 +266,12 @@ export class CrateStacker implements Game<CrateResult> {
     // Damped spring sway
     this.wobV += (-90 * this.wob - 7 * this.wobV) * dt;
     this.wob += this.wobV * dt;
+    this.kickV += (-260 * this.kick - 20 * this.kickV) * dt;
+    this.kick += this.kickV * dt;
+    this.scoreBump = Math.max(0, this.scoreBump - dt * 2.2);
+    this.multPop = Math.max(0, this.multPop - dt * 2);
+    this.zoomPulse = Math.max(0, this.zoomPulse - dt * 2.5);
+    this.juice.update(dt);
 
     for (const d of this.debris) {
       if (!d.on) continue;
@@ -243,6 +301,9 @@ export class CrateStacker implements Game<CrateResult> {
 
     this.elapsed += dt;
     this.idle += dt;
+    // Adaptive music: energy rises with the multiplier and the height of the tower.
+    const multFrac = (this.mult - 1) / Math.max(1, this.cfg.maxMultiplier - 1);
+    audio.intensity(Math.max(multFrac, clamp((this.stats.height - 4) / 20, 0, 1), this.unstable ? 0.7 : 0));
     if (this.cfg.maxDurationSec > 0 && this.elapsed >= this.cfg.maxDurationSec) return this.gameOver(this.labels.timeUp);
     if (this.idle > IDLE_END_S) return this.gameOver(this.labels.gameOver);
 
@@ -260,9 +321,11 @@ export class CrateStacker implements Game<CrateResult> {
     if (m.x <= MIN_X) {
       m.x = MIN_X;
       this.dir = 1;
+      audio.play("slide", 1, 0.7, -0.6);
     } else if (m.x + m.w >= MAX_X) {
       m.x = MAX_X - m.w;
       this.dir = -1;
+      audio.play("slide", 1, 0.7, 0.6);
     }
   }
 
@@ -324,22 +387,40 @@ export class CrateStacker implements Game<CrateResult> {
     // Effects render in screen space: world y + camera offset.
     const sx = placed.x + placed.w / 2;
     const sy = y - this.crateH + this.cam;
-    audio.play("drop", 1 + Math.min(this.level, 30) * 0.004);
+    const pan = (sx / W - 0.5) * 0.8;
+    audio.play("land", 1 + Math.min(this.level, 30) * 0.004 + rand(-0.03, 0.03), 1, pan);
+    // Dust kicks out from under both corners; the camera dips with the impact.
+    for (const cx of [placed.x + 8, placed.x + placed.w - 8]) this.particles.burst(cx, y + this.cam - 4, 4, 5, 240, { life: 0.45, size: 0.8, gravity: -80, up: 60 });
+    if (this.q.shake) this.kickV += perfect ? 420 : 240;
+    this.juice.fly(this.sprites.particles[perfect ? 7 : 5], sx, sy, SCORE_AT.x, SCORE_AT.y, perfect ? 1.3 : 0.9, 0.42, () => (this.scoreBump = 1));
 
     if (perfect) {
       this.perfectT = 0.45;
-      this.flashT = this.q.shake ? 0.12 : 0;
-      audio.play("perfect", Math.min(2, 1 + (this.combo - 1) * 0.06));
+      this.zoomPulse = this.q.shake ? 1 : 0;
+      this.flashT = this.q.shake ? 0.1 : 0;
+      audio.play("perfect", Math.min(2, 1 + (this.combo - 1) * 0.06), 1, pan);
       this.particles.burst(sx, sy, 26, 7, 820, { life: 0.8, up: 380 });
       this.particles.burst(sx, sy, 14, 2, 520, { life: 0.6, size: 1.2 });
-      this.popups.show(this.labels.perfect, W / 2, SLOT_PERFECT, P.gold, 96, 0.9, 40);
+      this.juice.ring(this.sprites.glowGold, sx, y + this.cam, 2.2, 0.5, 0.75);
+      this.juice.ring(this.sprites.ring, sx, y + this.cam, 2.4, 0.45, 0.6);
+      this.popups.show(this.combo > 1 ? `${this.labels.perfect} x${this.combo}` : this.labels.perfect, W / 2, SLOT_PERFECT, P.gold, 100, 0.9, 40);
       if (this.combo % c.comboStep === 0 && this.mult > 1) {
-        this.popups.show(`x${this.mult}`, W / 2, SLOT_MULT, P.bright, 100, 1, 30);
+        this.multPop = 1;
+        this.popups.show(`${this.labels.combo} x${this.mult}`, W / 2, SLOT_MULT, P.bright, 96, 1.1, 30);
         audio.play("combo", 1 + this.mult * 0.05);
       }
     } else {
       this.particles.burst(sx, sy + this.crateH - 6, 8, 5, 300, { life: 0.4, gravity: 600 });
     }
+    // Instability is presentation only: narrow or leaning towers sway and warn once.
+    const base = this.stack[0];
+    const lean = Math.abs(placed.x + placed.w / 2 - (base.x + base.w / 2));
+    const unstable = placed.w < c.startWidth * 0.38 || lean > c.startWidth * 0.5;
+    if (unstable && !this.unstable) {
+      this.popups.show(this.labels.unstable, W / 2, SLOT_MULT + 90, P.heat, 80, 1.1, 30);
+      audio.play("unstable");
+    }
+    this.unstable = unstable;
     // Beside the stack, not on it: the next crate hovers right over the placed one.
     const px = placed.x + placed.w + DX + 90 < W - 60 ? placed.x + placed.w + DX + 90 : placed.x - 90;
     this.popups.show(`+${pts}`, px, Math.max(320, sy + 20), P.cream, 58);
@@ -405,9 +486,10 @@ export class CrateStacker implements Game<CrateResult> {
       z = lerp(1, clamp(1450 / span, 0.16, 1), blend);
       oy = lerp(this.cam, 1780 / z - (GROUND_Y + 160), blend);
     }
+    z *= 1 + 0.025 * Math.sin(this.zoomPulse * Math.PI);
     view.s = baseS * z;
     view.ox = W / 2 / z - W / 2 + (shake ? rand(-shake, shake) : 0);
-    view.oy = oy + (shake ? rand(-shake, shake) : 0);
+    view.oy = oy + this.kick * 0.04 + (shake ? rand(-shake, shake) : 0);
 
     this.renderHeightMarks(ctx);
     this.renderGround(ctx);
@@ -418,8 +500,16 @@ export class CrateStacker implements Game<CrateResult> {
       const c = this.stack[i];
       // Sway grows toward the top of the stack.
       const k = n > 1 ? ((i - from) / Math.max(1, n - 1 - from)) ** 2 : 0;
-      const sway = this.wob * 26 * k;
+      const tremble = this.unstable && this.outro <= 0 ? Math.sin(this.elapsed * 5.5) * 0.3 : 0;
+      const sway = (this.wob + tremble) * 26 * k;
       const squash = i === n - 1 && this.landT > 0 ? Math.sin((this.landT / 0.18) * Math.PI) * 0.08 : 0;
+      if (i > 0) {
+        // Contact shadow on the crate below, only where they overlap.
+        const below = this.stack[i - 1];
+        const l = Math.max(c.x, below.x) + sway;
+        const r = Math.min(c.x + c.w, below.x + below.w) + sway;
+        if (r > l) ctx.drawImage(this.ao.canvas, l, this.yOf(i), r - l, 26);
+      }
       this.drawCrate(ctx, c.x + sway, this.yOf(i), c.w, i === n - 1, i % 2, squash, c);
       if (i === n - 1 && this.perfectT > 0) {
         ctx.globalAlpha = this.perfectT / 0.45;
@@ -433,10 +523,13 @@ export class CrateStacker implements Game<CrateResult> {
 
     if (this.outro <= 0) {
       const y = this.yOf(this.level) - HOVER + (this.dropping ? this.dropY : 0);
-      // Drop guide: faint column showing where the crate will land.
+      // Drop guide: faint column showing where the crate will land, and its shadow on the stack.
       resetView(ctx);
       ctx.fillStyle = "rgba(255,255,255,0.05)";
       ctx.fillRect(this.mover.x, y, this.mover.w, this.yOf(this.level) - y);
+      ctx.globalAlpha = this.dropping ? 0.5 + 0.5 * (this.dropY / HOVER) : 0.45;
+      ctx.drawImage(this.ao.canvas, this.mover.x, this.yOf(this.level), this.mover.w, 26);
+      ctx.globalAlpha = 1;
       this.drawCrate(ctx, this.mover.x, y, this.mover.w, true, this.level % 2, 0, this.mover);
     }
 
@@ -452,6 +545,8 @@ export class CrateStacker implements Game<CrateResult> {
     view.oy = 0;
     if (this.q.extras) ctx.globalCompositeOperation = "lighter";
     this.particles.render(ctx);
+    ctx.globalCompositeOperation = "lighter";
+    this.juice.render(ctx);
     ctx.globalCompositeOperation = "source-over";
     this.popups.render(ctx);
     this.renderHud(ctx);
@@ -638,45 +733,28 @@ export class CrateStacker implements Game<CrateResult> {
       ctx.fillRect(0, 0, W, H);
       ctx.globalAlpha = 1;
     }
-    ctx.fillStyle = "rgba(3,19,10,0.62)";
-    ctx.beginPath();
-    ctx.roundRect(40, 48, 620, 168, 34);
-    ctx.fill();
-    ctx.strokeStyle = "rgba(201,207,203,0.25)";
-    ctx.lineWidth = 2;
-    ctx.stroke();
+    drawPlate(ctx, this.scorePlate, 40, 48);
+    resetView(ctx, true);
     ctx.textAlign = "left";
     ctx.textBaseline = "alphabetic";
     ctx.fillStyle = P.silver;
-    ctx.font = `700 34px ${this.font}`;
-    ctx.fillText(this.labels.score, 80, 104);
-    ctx.fillStyle = P.cream;
-    ctx.font = `800 96px ${this.font}`;
-    ctx.fillText(String(Math.round(this.shown)), 76, 192);
+    ctx.font = `700 32px ${this.font}`;
+    ctx.fillText(this.labels.score, 80, 100);
+    drawNumber(ctx, this.font, String(Math.round(this.shown)), 76, 194, 100, this.scoreBump);
     if (this.mult > 1) {
-      ctx.fillStyle = P.bright;
-      ctx.beginPath();
-      ctx.roundRect(470, 92, 160, 92, 46);
-      ctx.fill();
-      ctx.fillStyle = "#03130a";
-      ctx.textAlign = "center";
-      ctx.font = `800 64px ${this.font}`;
-      ctx.fillText(`x${this.mult}`, 550, 160);
+      const chip = this.chip(this.mult);
+      place(ctx, 550, 138, 1 + 0.35 * this.multPop * this.multPop);
+      ctx.drawImage(chip.canvas, -chip.w / 2, -chip.h / 2);
     }
     // Height plate
-    ctx.fillStyle = "rgba(3,19,10,0.62)";
-    ctx.beginPath();
-    ctx.roundRect(720, 48, 320, 168, 34);
-    ctx.fill();
-    ctx.strokeStyle = "rgba(201,207,203,0.25)";
-    ctx.stroke();
+    drawPlate(ctx, this.heightPlate, 720, 48);
+    resetView(ctx, true);
     ctx.textAlign = "center";
     ctx.fillStyle = P.silver;
-    ctx.font = `700 34px ${this.font}`;
-    ctx.fillText(this.labels.height, 880, 104);
-    ctx.fillStyle = P.cream;
-    ctx.font = `800 96px ${this.font}`;
-    ctx.fillText(String(this.stats.height), 880, 192);
+    ctx.font = `700 32px ${this.font}`;
+    ctx.fillText(this.labels.height, 880, 100);
+    drawNumber(ctx, this.font, String(this.stats.height), 880, 194, 100, this.landT > 0 ? this.landT / 0.18 : 0, "center");
+    resetView(ctx, true);
     // Time cap warning in the last 10 s only: no clock pressure for normal runs.
     const cap = this.cfg.maxDurationSec;
     if (cap > 0 && this.outro <= 0 && cap - this.elapsed < 10) {

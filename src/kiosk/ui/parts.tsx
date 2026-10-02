@@ -30,13 +30,20 @@ export function OfficialStar({ size, className = "", style }: { size: number; cl
  * brand gradient) with slow light beams and drifting official stars. Only transform and
  * opacity animate (compositor thread). `lite` drops the moving parts.
  */
-export function Backdrop({ lite = false }: { lite?: boolean }) {
+/** Per-game light: warm gold spotlight for Star Catcher, cooler deep "warehouse" green for Crate Stacker. */
+const TINT = {
+  star: "radial-gradient(60% 34% at 88% 4%, rgba(255,214,110,0.26), rgba(255,214,110,0) 70%), radial-gradient(60% 40% at 10% 90%, rgba(255,201,74,0.12), rgba(255,201,74,0) 70%)",
+  crate: "radial-gradient(80% 50% at 15% 15%, rgba(159,227,255,0.10), rgba(159,227,255,0) 70%), linear-gradient(180deg, rgba(2,26,10,0) 40%, rgba(2,26,10,0.55) 100%)",
+} as const;
+
+export function Backdrop({ lite = false, tint }: { lite?: boolean; tint?: keyof typeof TINT }) {
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
       <div
         className="absolute inset-0"
         style={{ background: "radial-gradient(110% 62% at 50% 36%, #4faa33 0%, #2a8a33 22%, #136528 48%, #0a4a1d 72%, #052a12 100%)" }}
       />
+      {tint && <div className="absolute inset-0" style={{ background: TINT[tint] }} />}
       {!lite &&
         [
           { left: 140, delay: "0s", opacity: 0.18 },

@@ -2,17 +2,19 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
-import { audio } from "@/game/engine/audio";
+import { type AudioPrefs, audio, type TrackId } from "@/game/engine/audio";
 import type { QualityLevel } from "@/game/engine/runner";
 import type { GameResult } from "@/game/types";
 import { DEFAULT_CONFIG, type GameId, resolvePrize, type VersionedConfig } from "@/lib/config";
 import { DICTS } from "@/lib/i18n";
 import type { SessionPayload } from "@/lib/session";
 import { getIcons, preloadAssets } from "./assets";
+import { loadAudioPrefs, saveAudioPrefs } from "./audio-prefs";
 import { store, uuid } from "./store";
 import { flush, getBoard, loadCachedConfig, logError, refreshConfig } from "./sync";
 import { GameView } from "./ui/GameView";
 import { AgeGate, Attract, Board, Countdown, Denied, InitialsEntry, Intro, Result, type ResultData, Select } from "./ui/screens";
+import { SettingsHotspot, SettingsPanel, SpeakerIcon } from "./ui/Settings";
 import { Stage } from "./ui/Stage";
 import { Staff } from "./ui/Staff";
 
@@ -35,6 +37,13 @@ const HIDDEN_ABORT_MS = 20_000;
 // Fresh page every few hours, only ever from the attract screen: cheap insurance against
 // slow memory growth in a browser tab that runs all day (assets come from the SW cache).
 const RELOAD_AFTER_MS = 6 * 3600_000;
+
+// Five-point star filling the viewBox: the iris that closes over the menu on game entry.
+const IRIS_STAR = Array.from({ length: 10 }, (_, i) => {
+  const a = -Math.PI / 2 + (i * Math.PI) / 5;
+  const r = i % 2 ? 42 : 100;
+  return `${100 + Math.cos(a) * r},${100 + Math.sin(a) * r}`;
+}).join(" ");
 
 function readQuality(): QualityLevel {
   try {
@@ -113,10 +122,36 @@ export function KioskApp() {
     document.documentElement.lang = k.language;
   }, [k.language]);
 
+  // ---------- audio: admin policy, player mix, one track per screen ----------
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const audioDefaults = k.audio;
+  const [prefsState, setPrefsState] = useState(() => ({ basis: audioDefaults, prefs: loadAudioPrefs(audioDefaults) }));
+  // New admin defaults (config update) replace the player's mix: re-read during render.
+  const prefs: AudioPrefs = prefsState.basis === audioDefaults ? prefsState.prefs : loadAudioPrefs(audioDefaults);
+  if (prefsState.basis !== audioDefaults) setPrefsState({ basis: audioDefaults, prefs });
+  const changePrefs = (p: AudioPrefs) => {
+    setPrefsState({ basis: audioDefaults, prefs: p });
+    saveAudioPrefs(audioDefaults, p);
+  };
   useEffect(() => {
-    audio.soundEnabled = k.soundEnabled;
-    audio.musicEnabled = k.musicEnabled;
-  }, [k.soundEnabled, k.musicEnabled]);
+    audio.setPolicy(k.musicEnabled, k.soundEnabled);
+    audio.setPrefs(prefs);
+  }, [k.musicEnabled, k.soundEnabled, prefs]);
+  // Lobby loop on menus, the game's own track from GO, silence on attract (nobody there)
+  // and during the countdown (tension before the drop).
+  const track: TrackId | null =
+    screen.name === "attract" || screen.name === "staff" ? null : screen.name === "play" ? (screen.started ? screen.game : null) : "lobby";
+  useEffect(() => audio.music(track), [track]);
+  const introGame = screen.name === "intro" ? screen.game : null;
+  useEffect(() => {
+    if (introGame) audio.preload(introGame);
+  }, [introGame]);
+  // Any tap keeps the audio context alive (Android may suspend it while idle).
+  useEffect(() => {
+    const wake = () => void audio.unlock();
+    window.addEventListener("pointerdown", wake, { passive: true });
+    return () => window.removeEventListener("pointerdown", wake);
+  }, []);
 
   // ---------- attract-mode housekeeping ----------
   useEffect(() => {
@@ -175,7 +210,8 @@ export function KioskApp() {
 
   // ---------- flow ----------
   const firstTap = () => {
-    audio.unlock();
+    // Confirmation chime as soon as the effects are decoded (first tap of the page) or right away.
+    void audio.unlock().then(() => audio.play("select"));
     if (k.requestFullscreen && !document.fullscreenElement) {
       document.documentElement.requestFullscreen?.({ navigationUI: "hide" }).catch(() => {});
     }
@@ -191,12 +227,20 @@ export function KioskApp() {
     setScreen({ name: "intro", game });
   };
 
+  // Game entry: the star iris closes over the menu, the game mounts underneath, the iris
+  // fades. Hides the canvas set-up frame and makes the game feel like a place you enter.
+  const [iris, setIris] = useState<"in" | "out" | null>(null);
   const play = (game: GameId) => {
     audio.unlock();
     run.current.counter++;
     const runId = run.current.counter;
+    setIris("in");
     // Normally resolved long ago (boot preload); never start a round with fallback art.
-    void preloadAssets().then(() => setScreen({ name: "play", game, run: runId, started: false }));
+    void Promise.all([preloadAssets(), new Promise((r) => setTimeout(r, 420))]).then(() => {
+      setScreen({ name: "play", game, run: runId, started: false });
+      setIris("out");
+      setTimeout(() => setIris(null), 340);
+    });
   };
 
   const begin = () => {
@@ -207,7 +251,6 @@ export function KioskApp() {
   const boardEligible = (g: GameId) => k.leaderboardEnabled && k.leaderboardGames.includes(g);
 
   const finish = async (game: GameId, result: GameResult) => {
-    audio.stopMusic();
     const endedAt = Date.now();
     const startedAt = run.current.startedAt || endedAt - result.elapsedMs;
     const isReplay = run.current.lastEndedAt > 0 && startedAt - run.current.lastEndedAt < REPLAY_WINDOW_MS;
@@ -264,7 +307,6 @@ export function KioskApp() {
   const abandon = () => {
     const get = resultGetter.current;
     setScreen({ name: "attract" });
-    audio.stopMusic();
     if (!get || !run.current.startedAt) return;
     const r = get();
     const now = Date.now();
@@ -337,7 +379,8 @@ export function KioskApp() {
   return (
     <Stage>
       {/* data-screen: stable hook for the e2e suite. */}
-      <div data-screen={screen.name} className="absolute inset-0">
+      {/* Keyed per screen: every screen enters with the same short scale/fade. */}
+      <div key={screen.name} data-screen={screen.name} className={`absolute inset-0 ${screen.name === "play" ? "" : "animate-screen-in"}`}>
       {screen.name === "attract" && <Attract t={t} lite={lite} onStart={firstTap} onAdmin={() => setScreen({ name: "staff" })} />}
       {screen.name === "select" && (
         <Select t={t} lite={lite} best={best} onPick={pick} onBoard={() => setScreen({ name: "board" })} leaderboard={k.leaderboardEnabled && k.leaderboardGames.length > 0} />
@@ -370,7 +413,8 @@ export function KioskApp() {
             onQualityDrop={dropQuality}
             resultRef={resultGetter}
           />
-          {!screen.started && <Countdown t={t} onDone={begin} />}
+          {/* Starts once the iris has cleared, so "3" is never hidden under it. */}
+          {!screen.started && !iris && <Countdown t={t} onDone={begin} />}
         </div>
       )}
       {screen.name === "result" && (
@@ -406,6 +450,30 @@ export function KioskApp() {
         <div className="absolute right-6 top-6 rounded-full bg-ink/80 px-6 py-3 font-sans text-[24px] text-silver">{t.offline}</div>
       )}
       </div>
+      {iris && (
+        <div className={`pointer-events-none absolute inset-0 z-30 overflow-hidden ${iris === "out" ? "animate-fade-out" : ""}`} aria-hidden>
+          <svg viewBox="0 0 200 200" className="absolute left-1/2 top-1/2 h-[4200px] w-[4200px] animate-iris-in">
+            <polygon points={IRIS_STAR} fill="#062a14" />
+          </svg>
+        </div>
+      )}
+      {/* Muted state stays visible (shape, not colour) so staff notice a silent kiosk. */}
+      {!inGame && (prefs.master === 0 || ((!k.soundEnabled || !prefs.sfxOn) && (!k.musicEnabled || !prefs.musicOn))) && (
+        <div className="pointer-events-none absolute bottom-[44px] right-[44px] text-cream/40">
+          <SpeakerIcon off />
+        </div>
+      )}
+      {screen.name !== "play" && screen.name !== "staff" && !settingsOpen && <SettingsHotspot onOpen={() => setSettingsOpen(true)} />}
+      {settingsOpen && (
+        <SettingsPanel
+          t={t}
+          prefs={prefs}
+          musicAllowed={k.musicEnabled}
+          sfxAllowed={k.soundEnabled}
+          onChange={changePrefs}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
     </Stage>
   );
 }

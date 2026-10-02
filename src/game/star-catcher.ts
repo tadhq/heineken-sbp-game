@@ -1,6 +1,7 @@
 import type { StarConfig } from "@/lib/config";
 import type { StarStats } from "@/lib/session";
 import { audio } from "./engine/audio";
+import { drawNumber, drawPlate, Juice, makeChip, makeEdgeGlow, makePlate } from "./engine/hud";
 import { clamp, damp, easeOutCubic, H, lerp, place, rand, resetView, view, W } from "./engine/math";
 import { PALETTE as P } from "./engine/palette";
 import { Particles } from "./engine/particles";
@@ -48,6 +49,9 @@ const FALLBACK_RIM_HALF = 104;
 const FALLBACK_GLASS_H = 250;
 const OUTRO_S = 1.5;
 const MILESTONE_EVERY = 500;
+/** Combo catches climb a major pentatonic (as playback rates): a streak sounds like a melody. */
+const PENTA = [0, 2, 4, 7, 9, 12, 14, 16, 19].map((n) => 2 ** (n / 12));
+const SCORE_AT = { x: 170, y: 160 };
 
 type Spawn = { at: number; kind: Kind; x: number };
 
@@ -104,6 +108,19 @@ export class StarCatcher implements Game<StarResult> {
   private outro = 0;
   private done = false;
   private deco: { x: number; y: number; v: number; s: number }[] = [];
+  private juice = new Juice();
+  private scorePlate: Sprite;
+  private timerPlate: Sprite;
+  private chips = new Map<number, Sprite>();
+  private edgeRed: Sprite;
+  private edgeGold: Sprite;
+  private farStar: Sprite;
+  private scoreBump = 0;
+  private multPop = 0;
+  private edgeT = 0;
+  private edgeGolden = false;
+  private goldenT = 0;
+  private sparkleT = 0;
 
   constructor(
     private cfg: StarConfig,
@@ -115,11 +132,6 @@ export class StarCatcher implements Game<StarResult> {
     this.popups = new Popups(14, font);
     this.bg = makeSprite(W, H, (ctx) => {
       brandBackdrop(ctx, W / 2, H * 0.34);
-      // Giant faint official star behind the action: brand presence without clutter.
-      ctx.globalAlpha = 0.07;
-      const st = sprites.redStar;
-      ctx.drawImage(st.canvas, W / 2 - st.w * 3.4, H * 0.34 - st.h * 3.4, st.w * 6.8, st.h * 6.8);
-      ctx.globalAlpha = 1;
       beams(ctx, 5, 0.05);
       bokeh(ctx, 30, FLOOR_Y - 160);
       // Bar counter the glass stands on: polished dark green with a highlight edge.
@@ -144,6 +156,34 @@ export class StarCatcher implements Game<StarResult> {
     this.rimHalf = real ? real.rimHalf : FALLBACK_RIM_HALF;
     this.rimY = BASE_Y - (real ? real.rimHeight : FALLBACK_GLASS_H);
     for (let i = 0; i < 18; i++) this.deco.push({ x: rand(0, W), y: rand(0, H), v: rand(30, 90), s: rand(0.12, 0.3) });
+    // Giant faint official star on its own layer: drifts against the glass (parallax depth).
+    const st = sprites.redStar;
+    this.farStar = makeSprite(st.w * 6.8, st.h * 6.8, (ctx) => ctx.drawImage(st.canvas, 0, 0, st.w * 6.8, st.h * 6.8));
+    this.scorePlate = makePlate(620, 168, 34, P.starRed);
+    this.timerPlate = makeSprite(212, 212, (ctx) => {
+      ctx.shadowColor = "rgba(0,22,9,0.7)";
+      ctx.shadowBlur = 22;
+      ctx.shadowOffsetY = 10;
+      ctx.beginPath();
+      ctx.arc(106, 100, 92, 0, Math.PI * 2);
+      const g = ctx.createLinearGradient(0, 8, 0, 192);
+      g.addColorStop(0, "rgba(18,78,38,0.88)");
+      g.addColorStop(1, "rgba(3,28,13,0.92)");
+      ctx.fillStyle = g;
+      ctx.fill();
+      ctx.shadowColor = "transparent";
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "rgba(220,255,225,0.16)";
+      ctx.stroke();
+    });
+    this.edgeRed = makeEdgeGlow("rgba(227,0,15,0.7)");
+    this.edgeGold = makeEdgeGlow("rgba(255,201,74,0.6)");
+  }
+
+  private chip(n: number) {
+    let c = this.chips.get(n);
+    if (!c) this.chips.set(n, (c = makeChip(`x${n}`, this.font)));
+    return c;
   }
 
   setQuality(q: Quality) {
@@ -197,6 +237,11 @@ export class StarCatcher implements Game<StarResult> {
     this.flashT = Math.max(0, this.flashT - realDt);
     this.bannerT = Math.max(0, this.bannerT - realDt);
     this.shakeT = Math.max(0, this.shakeT - realDt);
+    this.scoreBump = Math.max(0, this.scoreBump - realDt * 2.2);
+    this.multPop = Math.max(0, this.multPop - realDt * 2);
+    this.edgeT = Math.max(0, this.edgeT - realDt);
+    this.goldenT = Math.max(0, this.goldenT - realDt);
+    this.juice.update(realDt);
 
     // Glass follows the finger with heavy smoothing: responsive but never jittery.
     const prev = this.glassX;
@@ -231,15 +276,21 @@ export class StarCatcher implements Game<StarResult> {
     if (remaining <= 0) return this.endRound();
     if (remaining < 5.5 && Math.ceil(remaining) !== this.lastTick) {
       this.lastTick = Math.ceil(remaining);
-      if (this.lastTick <= 5) audio.play("tick", 1 + (5 - this.lastTick) * 0.06);
+      if (this.lastTick <= 5) {
+        audio.play("tick", 1 + (5 - this.lastTick) * 0.06);
+        // A soft red pulse per second: urgency without flashing the whole screen.
+        this.edge(false, 0.45);
+      }
     }
+    // Adaptive music: the energy layer follows the multiplier, a golden star, and the final 10 s.
+    const multFrac = (this.mult - 1) / Math.max(1, this.cfg.maxMultiplier - 1);
+    audio.intensity(remaining < 10 || this.goldenT > 0 ? 1 : 0.15 + 0.85 * multFrac);
 
     const p = this.elapsed / this.cfg.durationSec;
     const stage = Math.min(6, 1 + Math.floor(p * 6));
     if (stage !== this.stage) {
       this.stage = stage;
       this.showBanner(this.labels.stage(stage));
-      audio.setTempo(112 + (stage - 1) * 6);
       audio.play("milestone", 0.9 + stage * 0.04);
     }
 
@@ -301,8 +352,12 @@ export class StarCatcher implements Game<StarResult> {
 
   private step(dt: number) {
     const gx = this.glassX;
+    this.sparkleT -= dt;
+    const sparkle = this.sparkleT <= 0 && this.q.extras;
+    if (sparkle) this.sparkleT = 0.05;
     for (const o of this.objs) {
       if (!o.on) continue;
+      if (sparkle && o.kind === Kind.Golden) this.particles.burst(o.x + rand(-30, 30), o.y + rand(-20, 20), 1, 7, 50, { life: 0.55, size: 0.7, gravity: -40 });
       o.y += o.vy * dt;
       o.rot += o.vrot * dt;
       if (o.wobble) o.x = clamp(o.baseX + Math.sin(o.y * 0.006 + o.phase) * o.wobble, 60, W - 60);
@@ -341,24 +396,36 @@ export class StarCatcher implements Game<StarResult> {
         const newMult = Math.min(c.maxMultiplier, 1 + Math.floor(this.combo / c.comboStep));
         const pts = (golden ? c.goldenPoints : c.starPoints) * newMult;
         this.addScore(pts);
+        const pan = (x / W - 0.5) * 1.2;
+        const bump = () => (this.scoreBump = 1);
         if (golden) {
           this.slowmo = 0.35;
-          this.flash(P.gold, 0.35);
+          this.goldenT = 2.5;
+          this.flash(P.gold, 0.22);
+          this.edge(true, 0.9);
+          this.shake(0.3, 12);
           this.particles.burst(x, y, 34, 7, 900, { life: 1, size: 1.3, up: 300 });
           this.particles.burst(x, y, 18, 1, 600, { life: 0.8, size: 1.6, gravity: 200 });
-          this.popups.show(`+${pts}`, x, y - 60, P.gold, 92, 1.2, 220);
-          this.popups.show(this.labels.golden, W / 2, 760, P.gold, 110, 1.2, 60);
-          audio.play("golden");
+          this.juice.ring(this.sprites.ring, x, y, 2.6, 0.6);
+          this.juice.ring(this.sprites.glowGold, x, y, 1.6, 0.5, 0.8);
+          for (let i = 0; i < 3; i++) this.juice.fly(this.sprites.particles[7], x + (i - 1) * 40, y, SCORE_AT.x, SCORE_AT.y, 1.4, 0.45 + i * 0.07, bump);
+          this.popups.show(`+${pts}`, x, y - 60, P.gold, 100, 1.2, 220);
+          this.popups.show(this.labels.golden, W / 2, 760, P.gold, 130, 1.2, 60);
+          audio.play("golden", 1, 1, pan);
         } else {
           this.particles.burst(x, y, 12, 6, 620, { life: 0.6, up: 260 });
           this.particles.burst(x, y, 6, 5, 380, { life: 0.4, size: 0.8 });
-          this.popups.show(`+${pts}`, x, y - 50, P.cream, 60);
-          // Rising pitch through the combo ladder: the classic audible "streak".
-          audio.play("catch", 1 + Math.min(this.combo % c.comboStep, 8) * 0.06);
+          this.juice.ring(this.sprites.ring, x, this.rimY, 0.9, 0.3, 0.55);
+          this.juice.fly(this.sprites.particles[6], x, y - 20, SCORE_AT.x, SCORE_AT.y, 0.9, 0.4, bump);
+          this.popups.show(`+${pts}`, x, y - 50, P.cream, 64);
+          // The streak climbs a pentatonic scale: catching in a row plays a little melody.
+          audio.play("catch", PENTA[Math.min(this.combo - 1, PENTA.length - 1)], 1, pan);
         }
         if (newMult > this.mult) {
-          this.popups.show(`x${newMult}`, this.glassX, this.rimY - 210, P.bright, 120, 1.1, 120);
+          this.multPop = 1;
+          this.popups.show(`${this.labels.combo} x${newMult}`, W / 2, 560, P.bright, 116, 1.2, 70);
           this.particles.burst(this.glassX, this.rimY - 80, 24, 2, 800, { life: 0.8, up: 400 });
+          this.juice.ring(this.sprites.glowGreen, this.glassX, this.rimY - 60, 1.4, 0.5, 0.7);
           audio.play("combo", 1 + newMult * 0.05);
         }
         this.mult = newMult;
@@ -373,8 +440,10 @@ export class StarCatcher implements Game<StarResult> {
         this.combo = 0;
         this.mult = 1;
         this.heat = 0.7;
-        this.shake(0.35, 22);
-        this.flash(P.heat, 0.3);
+        this.shake(0.35, 16);
+        this.edge(false, 0.7);
+        // The glass flinches away from the hit.
+        this.tilt += x < this.glassX ? 0.12 : -0.12;
         this.particles.burst(x, y, 26, 4, 900, { life: 0.7, up: 200 });
         this.popups.show(`-${c.hazardPenalty}`, x, y - 60, P.heat, 84, 1.1);
         audio.play("hazard");
@@ -436,6 +505,11 @@ export class StarCatcher implements Game<StarResult> {
     this.shakeT = t;
     this.shakeMag = mag;
   }
+  private edge(golden: boolean, t: number) {
+    if (!this.q.shake) return;
+    this.edgeGolden = golden;
+    this.edgeT = t;
+  }
   private flash(color: string, t: number) {
     if (!this.q.shake) return;
     this.flashColor = color;
@@ -454,6 +528,12 @@ export class StarCatcher implements Game<StarResult> {
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = "source-over";
     ctx.drawImage(this.bg.canvas, 0, 0);
+    // Far star: counter-drifts with the glass and turns very slowly.
+    const fs = this.farStar;
+    ctx.globalAlpha = 0.07;
+    place(ctx, W / 2 - (this.glassX - W / 2) * 0.05, H * 0.34, 1, Math.sin(this.elapsed * 0.15) * 0.06);
+    ctx.drawImage(fs.canvas, -fs.w / 2, -fs.h / 2);
+    ctx.globalAlpha = 1;
 
     // Far layer: small twinkles drifting slowly = parallax depth.
     if (this.q.extras) {
@@ -490,6 +570,22 @@ export class StarCatcher implements Game<StarResult> {
         ctx.drawImage(s.glowRed.canvas, -s.glowRed.cx, -s.glowRed.cy);
         ctx.globalCompositeOperation = "source-over";
       }
+      if (this.q.extras && (o.kind === Kind.Star || o.kind === Kind.Golden)) {
+        // Motion trail (two fading ghosts) and a soft halo: speed and light, two cheap blits.
+        ctx.globalAlpha = 0.16;
+        place(ctx, o.x, o.y - o.vy * 0.05, 0.86, o.rot - o.vrot * 0.05);
+        ctx.drawImage(sp.canvas, -sp.cx, -sp.cy);
+        ctx.globalAlpha = 0.07;
+        place(ctx, o.x, o.y - o.vy * 0.1, 0.72, o.rot - o.vrot * 0.1);
+        ctx.drawImage(sp.canvas, -sp.cx, -sp.cy);
+        const halo = o.kind === Kind.Golden ? s.glowGold : s.glowRed;
+        ctx.globalCompositeOperation = "lighter";
+        ctx.globalAlpha = o.kind === Kind.Golden ? 0.55 + 0.25 * Math.sin(this.elapsed * 10 + o.phase) : 0.28;
+        place(ctx, o.x, o.y, o.kind === Kind.Golden ? 0.62 : 0.55);
+        ctx.drawImage(halo.canvas, -halo.cx, -halo.cy);
+        ctx.globalCompositeOperation = "source-over";
+        ctx.globalAlpha = 1;
+      }
       place(ctx, o.x, o.y, 1, o.kind === Kind.Hazard ? o.rot * 0.5 : o.rot);
       ctx.drawImage(sp.canvas, -sp.cx, -sp.cy);
     }
@@ -497,6 +593,8 @@ export class StarCatcher implements Game<StarResult> {
     this.renderGlass(ctx);
     if (this.q.extras) ctx.globalCompositeOperation = "lighter";
     this.particles.render(ctx);
+    ctx.globalCompositeOperation = "lighter";
+    this.juice.render(ctx);
     ctx.globalCompositeOperation = "source-over";
     this.popups.render(ctx);
     this.renderOverlays(ctx);
@@ -535,9 +633,15 @@ export class StarCatcher implements Game<StarResult> {
   private renderOverlays(ctx: CanvasRenderingContext2D) {
     resetView(ctx, true);
     if (this.flashT > 0) {
-      ctx.globalAlpha = Math.min(0.35, this.flashT);
+      ctx.globalAlpha = Math.min(0.22, this.flashT);
       ctx.fillStyle = this.flashColor;
       ctx.fillRect(0, 0, W, H);
+      ctx.globalAlpha = 1;
+    }
+    if (this.edgeT > 0) {
+      const e = this.edgeGolden ? this.edgeGold : this.edgeRed;
+      ctx.globalAlpha = Math.min(1, this.edgeT * 1.6);
+      ctx.drawImage(e.canvas, 0, 0, W, H);
       ctx.globalAlpha = 1;
     }
     if (this.chill > 0) {
@@ -569,42 +673,40 @@ export class StarCatcher implements Game<StarResult> {
   }
 
   private renderHud(ctx: CanvasRenderingContext2D) {
-    resetView(ctx, true);
     const remaining = Math.max(0, this.cfg.durationSec - this.elapsed);
-    // Score plate
-    ctx.fillStyle = "rgba(3,19,10,0.62)";
-    ctx.beginPath();
-    ctx.roundRect(40, 48, 620, 168, 34);
-    ctx.fill();
-    ctx.strokeStyle = "rgba(201,207,203,0.25)";
-    ctx.lineWidth = 2;
-    ctx.stroke();
+    drawPlate(ctx, this.scorePlate, 40, 48);
+    resetView(ctx, true);
     ctx.textAlign = "left";
     ctx.textBaseline = "alphabetic";
     ctx.fillStyle = P.silver;
-    ctx.font = `700 34px ${this.font}`;
-    ctx.fillText(this.labels.score, 80, 104);
-    ctx.fillStyle = P.cream;
-    ctx.font = `800 96px ${this.font}`;
-    ctx.fillText(String(Math.round(this.shown)), 76, 192);
-    // Multiplier chip
+    ctx.font = `700 32px ${this.font}`;
+    ctx.fillText(this.labels.score, 80, 100);
+    drawNumber(ctx, this.font, String(Math.round(this.shown)), 76, 194, 100, this.scoreBump);
+    // Multiplier chip, glowing hotter as it climbs ("on fire" from x3).
     if (this.mult > 1) {
-      ctx.fillStyle = P.bright;
-      ctx.beginPath();
-      ctx.roundRect(470, 92, 160, 92, 46);
-      ctx.fill();
-      ctx.fillStyle = "#03130a";
-      ctx.textAlign = "center";
-      ctx.font = `800 64px ${this.font}`;
-      ctx.fillText(`x${this.mult}`, 550, 160);
+      if (this.mult >= 3 && this.q.extras) {
+        const gl = this.mult >= this.cfg.maxMultiplier ? this.sprites.glowGold : this.sprites.glowRed;
+        ctx.globalCompositeOperation = "lighter";
+        ctx.globalAlpha = 0.35 + 0.2 * Math.sin(this.elapsed * 8);
+        place(ctx, 550, 138, 0.9);
+        ctx.drawImage(gl.canvas, -gl.cx, -gl.cy);
+        ctx.globalCompositeOperation = "source-over";
+        ctx.globalAlpha = 1;
+      }
+      const c = this.chip(this.mult);
+      place(ctx, 550, 138, 1 + 0.35 * this.multPop * this.multPop);
+      ctx.drawImage(c.canvas, -c.w / 2, -c.h / 2);
     }
     // Combo meter: one star per catch toward the next multiplier.
+    resetView(ctx, true);
     const step = this.cfg.comboStep;
     const filled = this.mult >= this.cfg.maxMultiplier ? step : this.combo % step;
     const pip = this.sprites.redStar;
     for (let i = 0; i < step && i < 10; i++) {
-      ctx.globalAlpha = i < filled ? 1 : 0.22;
-      ctx.drawImage(pip.canvas, 270 + i * 40, 146, 34, (34 * pip.h) / pip.w);
+      const on = i < filled;
+      ctx.globalAlpha = on ? 1 : 0.2;
+      const sz = on && i === filled - 1 ? 40 + 8 * this.scoreBump : 36;
+      ctx.drawImage(pip.canvas, 262 + i * 40 - (sz - 36) / 2, 140 - (sz - 36) / 2, sz, (sz * pip.h) / pip.w);
     }
     ctx.globalAlpha = 1;
     // Timer ring
@@ -612,27 +714,25 @@ export class StarCatcher implements Game<StarResult> {
     const cy = 132;
     const frac = remaining / this.cfg.durationSec;
     const urgent = remaining <= 5 && this.outro <= 0;
-    ctx.fillStyle = "rgba(3,19,10,0.62)";
-    ctx.beginPath();
-    ctx.arc(cx, cy, 92, 0, Math.PI * 2);
-    ctx.fill();
+    const tp = this.timerPlate;
+    ctx.drawImage(tp.canvas, cx - 106, cy - 100);
     ctx.lineWidth = 14;
-    ctx.strokeStyle = "rgba(201,207,203,0.18)";
+    ctx.strokeStyle = "rgba(201,207,203,0.16)";
     ctx.beginPath();
-    ctx.arc(cx, cy, 76, 0, Math.PI * 2);
+    ctx.arc(cx, cy, 74, 0, Math.PI * 2);
     ctx.stroke();
-    ctx.strokeStyle = urgent ? P.starRed : P.bright;
+    ctx.strokeStyle = urgent ? P.starRed : remaining <= 10 ? P.gold : P.bright;
     ctx.lineCap = "round";
     ctx.beginPath();
-    ctx.arc(cx, cy, 76, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * frac);
+    ctx.arc(cx, cy, 74, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * frac);
     ctx.stroke();
     ctx.lineCap = "butt";
-    const pulse = urgent ? 1 + 0.12 * Math.max(0, Math.sin(this.elapsed * Math.PI * 2)) : 1;
+    const pulse = urgent ? 1 + 0.14 * Math.max(0, Math.sin(this.elapsed * Math.PI * 2)) : 1;
     place(ctx, cx, cy + 4, pulse);
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillStyle = urgent ? "#ff6b5e" : P.cream;
-    ctx.font = `800 72px ${this.font}`;
+    ctx.font = `800 76px ${this.font}`;
     ctx.fillText(String(Math.ceil(remaining)), 0, 0);
   }
 }

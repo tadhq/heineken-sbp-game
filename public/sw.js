@@ -7,7 +7,7 @@
  * are cached too.
  */
 // Bump when files under /assets change in place (same path, new content).
-const CACHE = "hk-shell-v5";
+const CACHE = "hk-shell-v6";
 const SHELL = [
   "/",
   "/manifest.webmanifest",
@@ -25,7 +25,11 @@ const SHELL = [
   "/assets/fx/star_06.png",
   "/assets/fx/spark_03.png",
   "/assets/fx/star_04.png",
-  ...["tap", "tick", "go", "catch", "golden", "hazard", "chill", "dodge", "combo", "miss", "drop", "slice", "perfect", "fall", "milestone", "end", "prize"].map((n) => `/assets/sfx/${n}.ogg`),
+  // Keep in sync with SFX and TRACKS in src/game/engine/audio.ts.
+  ...["tap", "select", "back", "open", "close", "tick", "go", "catch", "golden", "hazard", "chill", "dodge", "combo", "miss", "milestone", "end", "slide", "drop", "land", "slice", "perfect", "unstable", "fall", "count", "reveal", "unlock", "prize"].map(
+    (n) => `/assets/sfx/${n}.ogg`,
+  ),
+  ...["lobby", "star-base", "star-energy", "crate-base", "crate-energy"].map((n) => `/assets/music/${n}.ogg`),
 ];
 const MAX_ENTRIES = 300;
 

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useEffectEvent, useRef } from "react";
-import { audio } from "@/game/engine/audio";
 import { type QualityLevel, Runner } from "@/game/engine/runner";
 import { CrateStacker } from "@/game/crate-stacker";
 import { StarCatcher } from "@/game/star-catcher";
@@ -66,7 +65,6 @@ export function GameView({ game, config, labels, quality, autoQuality, running, 
       runner.dispose();
       runnerRef.current = null;
       resultRef.current = null;
-      audio.stopMusic();
     };
     // One runner per mount: the parent remounts (key) for a new game.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -75,8 +73,7 @@ export function GameView({ game, config, labels, quality, autoQuality, running, 
   useEffect(() => {
     if (!running) return;
     runnerRef.current?.start();
-    if (config.kiosk.musicEnabled) audio.startMusic(game === "star" ? 112 : 104);
-  }, [running, config.kiosk.musicEnabled, game]);
+  }, [running]);
 
   return (
     <>
