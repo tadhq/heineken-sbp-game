@@ -53,6 +53,31 @@ URL flags for QA: `?fps` shows frame times, and `?bot` makes the games play them
 
 The kiosk keeps working without internet. Results wait on the device and upload when the connection returns.
 
+## Android app (offline kiosk)
+
+For venues where wifi drops out for long periods, the kiosk also ships as an Android app. The game files are **inside the APK**, so it starts and plays with no network at all. Results queue on the device and upload to the online backend whenever a connection appears; the server ignores duplicates.
+
+**Build** (needs JDK 21 and the Android SDK; `brew install openjdk@21 && brew install --cask android-commandlinetools`, then `sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"`):
+
+```bash
+NEXT_PUBLIC_API_BASE=https://<your-deployment>.vercel.app pnpm apk:build   # → dist-apk/heineken-games-release.apk
+```
+
+- **Release signing:** create a keystore once (`keytool -genkeypair -v -keystore kiosk.jks -alias kiosk -keyalg RSA -keysize 2048 -validity 10000`). Then put `storeFile`, `storePassword`, `keyAlias` and `keyPassword` in `android/keystore.properties`. That file is not in git. **Keep the keystore safe: updates must be signed with the same key.**
+- **Emulator / local test build:** `APK_DEBUG=1 NEXT_PUBLIC_API_BASE=http://10.0.2.2:3100 pnpm apk:build` (10.0.2.2 is the Mac as seen from the emulator; plain HTTP is allowed only for that host).
+- **CORS:** the backend accepts kiosk API calls only from the app origin (`https://localhost`; override with `KIOSK_APP_ORIGINS`).
+
+**Install on the kiosk:**
+
+1. Enable "Install unknown apps", or push it with your MDM (`adb install dist-apk/heineken-games-release.apk` over USB also works).
+2. Open the app once **with internet**, hold the Heineken logo for 3 s, and enter the admin PIN plus a kiosk name. This pairs the device and stores the PIN securely on it for offline staff access.
+3. Make it the kiosk app. The app can act as the home screen (Android asks "use as home app"). For a full lock-down, set it as the dedicated/lock-task app in your MDM. It keeps the screen on and hides the system bars by itself.
+4. Make sure **Android System WebView** on the kiosk is up to date (version 111 or newer; check under Settings → Apps). The app renders with it.
+
+**Offline staff screen** (hold the logo for 3 s, then enter the PIN): shows this kiosk's prizes today (counts and award codes), recent prize events, what is still waiting to upload, and an "Upload now" button. It works without internet. After changing the admin PIN online, re-pair the kiosk so the offline PIN matches.
+
+**Updating:** game code changes need a new APK (same signing key). Prize tiers and game settings still update over the air from the admin whenever the kiosk is online.
+
 ## Tests
 
 ```bash

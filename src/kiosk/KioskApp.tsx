@@ -14,6 +14,7 @@ import { flush, getBoard, loadCachedConfig, logError, refreshConfig } from "./sy
 import { GameView } from "./ui/GameView";
 import { AgeGate, Attract, Board, Countdown, Denied, InitialsEntry, Intro, Result, type ResultData, Select } from "./ui/screens";
 import { Stage } from "./ui/Stage";
+import { Staff } from "./ui/Staff";
 
 type Screen =
   | { name: "attract" }
@@ -23,7 +24,8 @@ type Screen =
   | { name: "intro"; game: GameId }
   | { name: "play"; game: GameId; run: number; started: boolean }
   | { name: "result"; game: GameId; data: ResultData; sessionId: string; initials: "no" | "ask" | "done" }
-  | { name: "board"; game?: GameId; highlight?: string };
+  | { name: "board"; game?: GameId; highlight?: string }
+  | { name: "staff" };
 
 const QUALITY_KEY = "kiosk.quality";
 const REPLAY_WINDOW_MS = 60_000;
@@ -229,6 +231,13 @@ export function KioskApp() {
     const askInitials = boardEligible(game) && k.leaderboardInitials && result.score > 0;
     // Persist BEFORE revealing anything: the prize record must survive a crash or refresh.
     if (!(await store.addSession(payload, askInitials))) logError(`session ${payload.id} could not be stored`, "storage");
+    void store.addLedger({
+      sessionId: payload.id,
+      endedAt: payload.endedAt,
+      game,
+      score: result.score,
+      prize: prize && awardId ? { awardId, code: awardId.slice(0, 6).toUpperCase(), prizeId: prize.id, prizeName: prize.name } : null,
+    });
 
     let isBest = false;
     let initials: "no" | "ask" = "no";
@@ -329,7 +338,7 @@ export function KioskApp() {
     <Stage>
       {/* data-screen: stable hook for the e2e suite. */}
       <div data-screen={screen.name} className="absolute inset-0">
-      {screen.name === "attract" && <Attract t={t} lite={lite} onStart={firstTap} onAdmin={() => router.push("/admin")} />}
+      {screen.name === "attract" && <Attract t={t} lite={lite} onStart={firstTap} onAdmin={() => setScreen({ name: "staff" })} />}
       {screen.name === "select" && (
         <Select t={t} lite={lite} best={best} onPick={pick} onBoard={() => setScreen({ name: "board" })} leaderboard={k.leaderboardEnabled && k.leaderboardGames.length > 0} />
       )}
@@ -390,7 +399,10 @@ export function KioskApp() {
           onBack={() => setScreen({ name: "select" })}
         />
       )}
-      {!online && screen.name !== "play" && (
+      {screen.name === "staff" && (
+        <Staff t={t} timeZone={k.timezone} onClose={() => setScreen({ name: "attract" })} onOpenAdmin={() => router.push("/admin")} />
+      )}
+      {!online && screen.name !== "play" && screen.name !== "staff" && (
         <div className="absolute right-6 top-6 rounded-full bg-ink/80 px-6 py-3 font-sans text-[24px] text-silver">{t.offline}</div>
       )}
       </div>

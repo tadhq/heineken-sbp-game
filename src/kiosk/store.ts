@@ -7,11 +7,22 @@ import type { ClientError, SessionPayload } from "@/lib/session";
  * localStorage; if that fails too, to memory, so the kiosk keeps running regardless.
  */
 
+/** One finished game as remembered on this device (kept after it syncs). */
+export type LedgerEntry = {
+  sessionId: string;
+  endedAt: string;
+  game: "star" | "crate";
+  score: number;
+  prize: { awardId: string; code: string; prizeId: string; prizeName: string } | null;
+};
+const LEDGER_MAX = 5000;
+
 export type OutboxItem = { id: string; payload: SessionPayload; /** Waiting for initials. */ hold: boolean; createdAt: number };
 
 const DB_NAME = "heineken-kiosk";
-const DB_VERSION = 1;
-const STORES = ["outbox", "errors", "kv"] as const;
+// v2 adds "ledger": a local history of finished games for the offline staff screen.
+const DB_VERSION = 2;
+const STORES = ["outbox", "errors", "kv", "ledger"] as const;
 type StoreName = (typeof STORES)[number];
 
 interface Backend {
@@ -156,6 +167,17 @@ export const store = {
   addError: (e: ClientError) => safe((b) => b.put("errors", e.id, e), undefined),
   errors: () => safe((b) => b.all<ClientError>("errors"), [] as ClientError[]),
   removeError: (id: string) => safe((b) => b.del("errors", id), undefined),
+  /** Keys sort by time, so pruning the oldest is a sort away. */
+  addLedger: (e: LedgerEntry) =>
+    safe(async (b) => {
+      await b.put("ledger", `${e.endedAt}|${e.sessionId}`, e);
+      const all = await b.all<LedgerEntry>("ledger");
+      if (all.length > LEDGER_MAX) {
+        const old = all.sort((x, y) => x.endedAt.localeCompare(y.endedAt)).slice(0, all.length - LEDGER_MAX);
+        for (const o of old) await b.del("ledger", `${o.endedAt}|${o.sessionId}`);
+      }
+    }, undefined),
+  ledger: () => safe((b) => b.all<LedgerEntry>("ledger"), [] as LedgerEntry[]),
   get: <T>(key: string) => safe((b) => b.get<T>("kv", key), undefined),
   set: (key: string, value: unknown) => safe((b) => b.put("kv", key, value), undefined),
   del: (key: string) => safe((b) => b.del("kv", key), undefined),

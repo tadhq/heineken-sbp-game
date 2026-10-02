@@ -1,6 +1,7 @@
 import { DEFAULT_CONFIG, type GameId, normalizeConfig, type VersionedConfig } from "@/lib/config";
 import { startOfDay } from "@/lib/time";
 import { store, uuid } from "./store";
+import { apiUrl } from "./target";
 
 /**
  * Kiosk <-> server traffic. The kiosk works fully offline: config is cached, finished
@@ -35,7 +36,7 @@ export async function loadCachedConfig(): Promise<VersionedConfig> {
 
 export async function refreshConfig(): Promise<VersionedConfig | null> {
   try {
-    const { status, data } = await fetchJson<VersionedConfig>("/api/kiosk/config");
+    const { status, data } = await fetchJson<VersionedConfig>(apiUrl("/api/kiosk/config"));
     if (status !== 200 || !data) return null;
     // The server validated this with the full schema; normalise defensively anyway.
     const config = normalizeConfig(data.config);
@@ -81,7 +82,7 @@ async function doFlush(): Promise<SyncStatus> {
       const batch = ready.slice(i, i + 50);
       const errBatch = i === 0 ? errors.slice(0, 100) : [];
       const { status: code, data } = await fetchJson<{ accepted: string[]; rejected: { id: string | null; reason: string }[] }>(
-        "/api/kiosk/sync",
+        apiUrl("/api/kiosk/sync"),
         {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -127,7 +128,7 @@ export type BoardEntry = { id: string; score: number; initials: string | null; e
 export async function getBoard(game: GameId, scope: "daily" | "all", limit: number, timeZone: string): Promise<BoardEntry[]> {
   let entries = (await store.get<BoardEntry[]>(BOARD_KEY(game, scope))) ?? [];
   try {
-    const { status: code, data } = await fetchJson<{ entries: BoardEntry[] }>(`/api/kiosk/leaderboard?game=${game}&scope=${scope}`);
+    const { status: code, data } = await fetchJson<{ entries: BoardEntry[] }>(apiUrl(`/api/kiosk/leaderboard?game=${game}&scope=${scope}`));
     if (code === 200 && data) {
       entries = data.entries;
       await store.set(BOARD_KEY(game, scope), entries);

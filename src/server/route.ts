@@ -37,3 +37,31 @@ export function adminRoute<C>(fn: Handler<C>): Handler<C> {
     return fn(req, ctx);
   });
 }
+
+/**
+ * Origins of the packaged Android app (Capacitor serves bundled files from
+ * https://localhost). Only these may call the kiosk API cross-origin; auth is a Bearer
+ * token, never a cookie, so allowing them exposes nothing a kiosk could not already do.
+ */
+const APP_ORIGINS = new Set((process.env.KIOSK_APP_ORIGINS ?? "https://localhost,capacitor://localhost").split(",").map((o) => o.trim()));
+
+function withCors(req: Request, res: Response): Response {
+  const origin = req.headers.get("origin");
+  if (origin && APP_ORIGINS.has(origin)) {
+    res.headers.set("Access-Control-Allow-Origin", origin);
+    res.headers.set("Vary", "Origin");
+    res.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.headers.set("Access-Control-Max-Age", "600");
+  }
+  return res;
+}
+
+/** Kiosk API route: structured errors (as route()) plus CORS for the packaged app. */
+export function kioskRoute<C>(fn: Handler<C>): Handler<C> {
+  const inner = route(fn);
+  return async (req, ctx) => withCors(req, await inner(req, ctx));
+}
+
+/** Preflight for kiosk routes called from the packaged app. */
+export const kioskOptions = async (req: Request) => withCors(req, new Response(null, { status: 204 }));

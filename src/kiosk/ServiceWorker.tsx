@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect } from "react";
+import { TARGET } from "./target";
 
 /** Registers the offline service worker (production only; dev uses HMR). `?nosw` opts out. */
 export function ServiceWorker() {
   useEffect(() => {
-    if (!("serviceWorker" in navigator)) return;
+    // The Android app ships its files inside the APK: no service worker needed there.
+    if (TARGET === "apk" || !("serviceWorker" in navigator)) return;
     if (process.env.NODE_ENV !== "production" || window.location.search.includes("nosw")) return;
     navigator.serviceWorker
       .register("/sw.js", { scope: "/", updateViaCache: "none" })

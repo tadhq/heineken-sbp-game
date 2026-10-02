@@ -14,7 +14,10 @@
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "test:e2e": "playwright test --grep-invert \"@soak|@shots\"",
-    "test:soak": "playwright test --grep @soak"
+    "test:soak": "playwright test --grep @soak",
+    "apk:web": "BUILD_TARGET=apk NEXT_PUBLIC_TARGET=apk next build",
+    "apk:sync": "cap sync android",
+    "apk:build": "node scripts/build-apk.mjs"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.10.0",
@@ -28,6 +31,9 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@capacitor/android": "8.5.2",
+    "@capacitor/cli": "8.5.2",
+    "@capacitor/core": "8.5.2",
     "@playwright/test": "1.63.0",
     "@types/node": "^26.6.3",
     "@types/pg": "^8.23.1",

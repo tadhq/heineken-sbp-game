@@ -71,7 +71,7 @@ export function starSession(over: Record<string, unknown> = {}) {
 export async function setKioskToken(page: Page, token: string) {
   await page.evaluate(async (t) => {
     await new Promise<void>((resolve, reject) => {
-      const r = indexedDB.open("heineken-kiosk", 1);
+      const r = indexedDB.open("heineken-kiosk");
       r.onupgradeneeded = () => ["outbox", "errors", "kv"].forEach((s) => r.result.createObjectStore(s));
       r.onsuccess = () => {
         const tx = r.result.transaction("kv", "readwrite");
@@ -91,7 +91,7 @@ export async function outbox(page: Page): Promise<{ id: string; hold: boolean; p
   return page.evaluate(
     () =>
       new Promise((resolve, reject) => {
-        const r = indexedDB.open("heineken-kiosk", 1);
+        const r = indexedDB.open("heineken-kiosk");
         r.onsuccess = () => {
           const q = r.result.transaction("outbox", "readonly").objectStore("outbox").getAll();
           q.onsuccess = () => {
