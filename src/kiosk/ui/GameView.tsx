@@ -8,6 +8,7 @@ import { StarCatcher } from "@/game/star-catcher";
 import type { GameLabels, GameResult } from "@/game/types";
 import type { AppConfig, GameId } from "@/lib/config";
 import { displayFontFamily, getSprites } from "../assets";
+import { logError } from "../sync";
 
 type Props = {
   game: GameId;
@@ -46,6 +47,10 @@ export function GameView({ game, config, labels, quality, autoQuality, running, 
       autoQuality,
       effectsEnabled: config.kiosk.effectsEnabled,
       bot: params.has("bot"),
+      onError: (e) => {
+        console.error("[game]", e);
+        logError(e instanceof Error ? `${e.name}: ${e.message}` : String(e), `game:${game}`);
+      },
       onFinish: (r) => finish(r),
       onQualityDrop: () => qualityDrop(),
       onStats: showFps

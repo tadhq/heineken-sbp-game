@@ -41,6 +41,8 @@ type RunnerOptions<R> = {
   onQualityDrop?: () => void;
   /** Dev/QA hook: average frame time samples, roughly once a second. */
   onStats?: (s: { fps: number; frameMs: number; level: QualityLevel }) => void;
+  /** A frame threw. Reported, never fatal: see tick(). */
+  onError?: (e: unknown) => void;
   bot?: boolean;
 };
 
@@ -62,6 +64,7 @@ export class Runner<R> {
   private frameCount = 0;
   private slowWindows = 0;
   private warmup = 45;
+  private errors = 0;
 
   constructor(
     private canvas: HTMLCanvasElement,
@@ -140,22 +143,35 @@ export class Runner<R> {
     if (dt <= 0) return;
     this.monitor(dt);
 
-    const steps = Math.ceil(dt / (1 / 60));
-    const h = dt / steps;
-    for (let i = 0; i < steps; i++) {
-      if (this.opts.bot) this.game.autopilot?.(h);
-      this.game.update(h);
-    }
-
-    view.s = this.scale;
-    this.game.render(this.ctx);
-
-    if (this.game.finished && !this.done) {
-      this.done = true;
-      this.stop();
-      this.opts.onFinish(this.game.result());
+    // A bug in one frame must never freeze the kiosk: contain it, report it, and if it
+    // keeps happening end the round with whatever result exists.
+    try {
+      const steps = Math.ceil(dt / (1 / 60));
+      const h = dt / steps;
+      for (let i = 0; i < steps; i++) {
+        if (this.opts.bot) this.game.autopilot?.(h);
+        this.game.update(h);
+      }
+      // Report a finished round before drawing, so a render problem cannot swallow it.
+      if (this.game.finished) return this.finish();
+      view.s = this.scale;
+      this.game.render(this.ctx);
+      this.errors = 0;
+    } catch (e) {
+      this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+      this.ctx.globalAlpha = 1;
+      this.ctx.globalCompositeOperation = "source-over";
+      if (this.errors++ === 0) this.opts.onError?.(e);
+      if (this.errors > 30) this.finish();
     }
   };
+
+  private finish() {
+    if (this.done) return;
+    this.done = true;
+    this.stop();
+    this.opts.onFinish(this.game.result());
+  }
 
   private monitor(dt: number) {
     if (this.warmup > 0) {

@@ -445,7 +445,8 @@ export class CrateStacker implements Game<CrateResult> {
       ctx.closePath();
       ctx.fill();
       // Bottle caps peeking out of the top crate: reads instantly as a beer crate.
-      const cols = Math.max(1, Math.floor((w - 10) / 44));
+      // Skipped on slivers (a negative ellipse radius throws).
+      const cols = w >= 40 ? Math.max(1, Math.floor((w - 10) / 44)) : 0;
       const gap = (w - 10) / cols;
       for (let r = 0; r < 2; r++) {
         const ry = fy - DY * (0.3 + r * 0.42);

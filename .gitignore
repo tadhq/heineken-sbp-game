@@ -9,3 +9,5 @@ next-env.d.ts
 .DS_Store
 .vercel
 coverage
+test-results
+playwright-report

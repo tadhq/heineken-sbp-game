@@ -19,10 +19,12 @@ export function Stage({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("resize", fit);
   }, []);
   return (
-    <div className="fixed inset-0 flex items-center justify-center overflow-hidden bg-ink">
+    // overflow:clip (not hidden): hidden boxes can still be scrolled by focus() or
+    // scrollIntoView, which would shift the whole kiosk off-screen.
+    <div className="fixed inset-0 flex items-center justify-center bg-ink" style={{ overflow: "clip" }}>
       <div
-        className="relative shrink-0 overflow-hidden bg-ink"
-        style={{ width: STAGE_W, height: STAGE_H, transform: `scale(${scale})` }}
+        className="relative shrink-0 bg-ink"
+        style={{ width: STAGE_W, height: STAGE_H, transform: `scale(${scale})`, overflow: "clip" }}
       >
         {children}
       </div>

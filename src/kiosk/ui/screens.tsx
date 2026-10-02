@@ -408,8 +408,6 @@ export function Result({
           )}
         </div>
 
-        {initialsSlot}
-
         <div className="mt-auto flex w-full gap-8 pb-[150px]">
           <button
             type="button"
@@ -435,6 +433,8 @@ export function Result({
         <p className="absolute bottom-[90px] font-sans text-[28px] text-silver/60">{left}s</p>
       </div>
       <ResponsibleFooter text={t.responsible} notice={t.ageNotice} />
+      {/* Bottom sheet over the result, so the screen never grows past 1920px. */}
+      {initialsSlot && <div className="absolute inset-0 z-20 flex items-end bg-ink/75 px-10 pb-16">{initialsSlot}</div>}
     </div>
   );
 }
@@ -456,7 +456,7 @@ export function InitialsEntry({ t, onSave, onSkip }: { t: Dict; onSave: (v: stri
     onSave(v);
   };
   return (
-    <div className="mt-10 w-full animate-rise-in rounded-[48px] border-2 border-bright/50 bg-ink/80 px-10 py-8">
+    <div className="w-full animate-rise-in rounded-[48px] border-2 border-bright/50 bg-deep px-10 py-10">
       <p className="font-display text-[48px] font-bold uppercase text-bright">{t.enterInitials}</p>
       <div className={`mt-5 flex justify-center gap-5 ${shake ? "translate-x-3" : ""} transition-transform`}>
         {[0, 1, 2].map((i) => (

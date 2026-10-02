@@ -12,7 +12,9 @@
     "test": "vitest run",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "test:e2e": "playwright test --grep-invert @soak",
+    "test:soak": "playwright test --grep @soak"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.10.0",

@@ -323,6 +323,8 @@ export function KioskApp() {
 
   return (
     <Stage>
+      {/* data-screen: stable hook for the e2e suite. */}
+      <div data-screen={screen.name} className="absolute inset-0">
       {screen.name === "attract" && <Attract t={t} lite={lite} onStart={firstTap} onAdmin={() => router.push("/admin")} />}
       {screen.name === "select" && icon && (
         <Select t={t} icons={icon} lite={lite} best={best} onPick={pick} onBoard={() => setScreen({ name: "board" })} leaderboard={k.leaderboardEnabled && k.leaderboardGames.length > 0} />
@@ -387,6 +389,7 @@ export function KioskApp() {
       {!online && screen.name !== "play" && (
         <div className="absolute right-6 top-6 rounded-full bg-ink/80 px-6 py-3 font-sans text-[24px] text-silver">{t.offline}</div>
       )}
+      </div>
     </Stage>
   );
 }
