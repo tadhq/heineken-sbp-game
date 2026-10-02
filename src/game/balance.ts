@@ -87,7 +87,7 @@ export const CRATE_STAGES: CrateStage[] = [
   { from: 12, motion: "eased", speed: 1.12, tolerance: 1, golden: true },
   { from: 18, motion: "crane", speed: 1, tolerance: 1, golden: true },
   { from: 24, motion: "surge", speed: 1.1, tolerance: 0.9, golden: true },
-  { from: 32, motion: "surge", speed: 1.25, tolerance: 0.75, golden: true },
+  { from: 32, motion: "surge", speed: 1.4, tolerance: 0.6, golden: true },
 ];
 
 export const CRATE = {

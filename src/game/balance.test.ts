@@ -109,3 +109,26 @@ describe("Star Catcher balance", () => {
     expect(out.skilled.median).toBeGreaterThan(out.casual.median * 1.7);
   }, 120_000);
 });
+
+describe("Crate Stacker balance", () => {
+  it("lands bot skill levels in the prize bands, all plausible", async () => {
+    const { CrateStacker } = await import("./crate-stacker");
+    const out: Record<string, ReturnType<typeof summary>> = {};
+    for (const [label, skill] of [["casual", 0.25], ["decent", 0.55], ["skilled", 0.9]] as const) {
+      const rs: GameResult[] = [];
+      for (let i = 0; i < RUNS; i++) {
+        const r = play(new CrateStacker(DEFAULT_CONFIG.crate, sprites, "x", DICTS.en.game), skill);
+        expect(checkPlausibility(DEFAULT_CONFIG, payload(r)), JSON.stringify(r)).toEqual([]);
+        rs.push(r);
+      }
+      out[label] = summary(`crate ${label}`, rs);
+    }
+    // Tiers: 300 / 700 / 1400 (DEFAULT_CONFIG.prizes).
+    expect(out.casual.median).toBeGreaterThanOrEqual(200);
+    expect(out.casual.median).toBeLessThan(800);
+    expect(out.decent.median).toBeGreaterThanOrEqual(600);
+    expect(out.decent.median).toBeLessThan(1400);
+    expect(out.skilled.median).toBeGreaterThanOrEqual(1250);
+    expect(out.skilled.median).toBeGreaterThan(out.casual.median * 1.7);
+  }, 120_000);
+});

@@ -298,7 +298,7 @@ export class CrateStacker implements Game<CrateResult> {
     const top = this.stack[this.stack.length - 1];
     // Timing error in px grows with crate speed (harder stages) and shrinks with skill.
     if (this.botAim === null) {
-      const err = lerp(26, 4, this.skill) * (0.6 + this.speed / 900) * (this.stage.motion === "crane" || this.stage.motion === "surge" ? 1.4 : 1);
+      const err = (5 + 43 * (1 - this.skill) ** 1.6) * (0.6 + this.speed / 900) * (this.stage.motion === "crane" || this.stage.motion === "surge" ? 1.4 : 1);
       this.botAim = rand(-err, err) + rand(-err, err) * 0.5;
     }
     if (Math.abs(this.mover.x - (top.x + this.botAim)) < Math.max(3, this.speed / 120)) {
