@@ -48,10 +48,18 @@ export function makePlate(w: number, h: number, r: number, accent: string | null
   );
 }
 
-/** Draws a baked plate with its top-left at (x, y) in HUD space. */
-export function drawPlate(ctx: CanvasRenderingContext2D, p: Sprite, x: number, y: number) {
+/**
+ * Draws a baked plate with its top-left at (x, y) in HUD space. `cheap` (low quality) is a
+ * flat fill of the plate area: the baked sprite's soft shadow margin is a large blend on
+ * software-rasterised devices.
+ */
+export function drawPlate(ctx: CanvasRenderingContext2D, p: Sprite, x: number, y: number, cheap = false) {
   resetView(ctx, true);
-  ctx.drawImage(p.canvas, x - p.cx, y - p.cy);
+  if (!cheap) return ctx.drawImage(p.canvas, x - p.cx, y - p.cy);
+  ctx.fillStyle = "rgba(5,36,17,0.78)";
+  ctx.beginPath();
+  ctx.roundRect(x, y, p.w - 2 * p.cx, p.h - 2 * p.cy, 34);
+  ctx.fill();
 }
 
 /** Glowing pill for the multiplier ("x3"), baked per level so drawing it is one blit. */

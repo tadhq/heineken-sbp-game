@@ -114,7 +114,6 @@ export class StarCatcher implements Game<StarResult> {
   private chips = new Map<number, Sprite>();
   private edgeRed: Sprite;
   private edgeGold: Sprite;
-  private farStar: Sprite;
   private scoreBump = 0;
   private multPop = 0;
   private edgeT = 0;
@@ -132,6 +131,12 @@ export class StarCatcher implements Game<StarResult> {
     this.popups = new Popups(14, font);
     this.bg = makeSprite(W, H, (ctx) => {
       brandBackdrop(ctx, W / 2, H * 0.34);
+      // Giant faint official star behind the action: brand presence without clutter.
+      // Baked (a per-frame parallax version cost ~30% frame time on the low-end proxy).
+      ctx.globalAlpha = 0.07;
+      const st = sprites.redStar;
+      ctx.drawImage(st.canvas, W / 2 - st.w * 3.4, H * 0.34 - st.h * 3.4, st.w * 6.8, st.h * 6.8);
+      ctx.globalAlpha = 1;
       beams(ctx, 5, 0.05);
       bokeh(ctx, 30, FLOOR_Y - 160);
       // Bar counter the glass stands on: polished dark green with a highlight edge.
@@ -156,9 +161,6 @@ export class StarCatcher implements Game<StarResult> {
     this.rimHalf = real ? real.rimHalf : FALLBACK_RIM_HALF;
     this.rimY = BASE_Y - (real ? real.rimHeight : FALLBACK_GLASS_H);
     for (let i = 0; i < 18; i++) this.deco.push({ x: rand(0, W), y: rand(0, H), v: rand(30, 90), s: rand(0.12, 0.3) });
-    // Giant faint official star on its own layer: drifts against the glass (parallax depth).
-    const st = sprites.redStar;
-    this.farStar = makeSprite(st.w * 6.8, st.h * 6.8, (ctx) => ctx.drawImage(st.canvas, 0, 0, st.w * 6.8, st.h * 6.8));
     this.scorePlate = makePlate(620, 168, 34, P.starRed);
     this.timerPlate = makeSprite(212, 212, (ctx) => {
       ctx.shadowColor = "rgba(0,22,9,0.7)";
@@ -528,12 +530,6 @@ export class StarCatcher implements Game<StarResult> {
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = "source-over";
     ctx.drawImage(this.bg.canvas, 0, 0);
-    // Far star: counter-drifts with the glass and turns very slowly.
-    const fs = this.farStar;
-    ctx.globalAlpha = 0.07;
-    place(ctx, W / 2 - (this.glassX - W / 2) * 0.05, H * 0.34, 1, Math.sin(this.elapsed * 0.15) * 0.06);
-    ctx.drawImage(fs.canvas, -fs.w / 2, -fs.h / 2);
-    ctx.globalAlpha = 1;
 
     // Far layer: small twinkles drifting slowly = parallax depth.
     if (this.q.extras) {
@@ -570,19 +566,18 @@ export class StarCatcher implements Game<StarResult> {
         ctx.drawImage(s.glowRed.canvas, -s.glowRed.cx, -s.glowRed.cy);
         ctx.globalCompositeOperation = "source-over";
       }
-      if (this.q.extras && (o.kind === Kind.Star || o.kind === Kind.Golden)) {
-        // Motion trail (two fading ghosts) and a soft halo: speed and light, two cheap blits.
-        ctx.globalAlpha = 0.16;
-        place(ctx, o.x, o.y - o.vy * 0.05, 0.86, o.rot - o.vrot * 0.05);
+      if (this.q.extras && o.kind === Kind.Star) {
+        // One fading ghost: reads as speed for the price of one small blit.
+        ctx.globalAlpha = 0.14;
+        place(ctx, o.x, o.y - o.vy * 0.06, 0.84, o.rot - o.vrot * 0.06);
         ctx.drawImage(sp.canvas, -sp.cx, -sp.cy);
-        ctx.globalAlpha = 0.07;
-        place(ctx, o.x, o.y - o.vy * 0.1, 0.72, o.rot - o.vrot * 0.1);
-        ctx.drawImage(sp.canvas, -sp.cx, -sp.cy);
-        const halo = o.kind === Kind.Golden ? s.glowGold : s.glowRed;
+        ctx.globalAlpha = 1;
+      } else if (o.kind === Kind.Golden) {
+        // The golden star pulses with its own light: it should be impossible to miss.
         ctx.globalCompositeOperation = "lighter";
-        ctx.globalAlpha = o.kind === Kind.Golden ? 0.55 + 0.25 * Math.sin(this.elapsed * 10 + o.phase) : 0.28;
-        place(ctx, o.x, o.y, o.kind === Kind.Golden ? 0.62 : 0.55);
-        ctx.drawImage(halo.canvas, -halo.cx, -halo.cy);
+        ctx.globalAlpha = 0.55 + 0.25 * Math.sin(this.elapsed * 10 + o.phase);
+        place(ctx, o.x, o.y, 0.62);
+        ctx.drawImage(s.glowGold.canvas, -s.glowGold.cx, -s.glowGold.cy);
         ctx.globalCompositeOperation = "source-over";
         ctx.globalAlpha = 1;
       }
@@ -674,7 +669,7 @@ export class StarCatcher implements Game<StarResult> {
 
   private renderHud(ctx: CanvasRenderingContext2D) {
     const remaining = Math.max(0, this.cfg.durationSec - this.elapsed);
-    drawPlate(ctx, this.scorePlate, 40, 48);
+    drawPlate(ctx, this.scorePlate, 40, 48, !this.q.extras);
     resetView(ctx, true);
     ctx.textAlign = "left";
     ctx.textBaseline = "alphabetic";
@@ -715,7 +710,13 @@ export class StarCatcher implements Game<StarResult> {
     const frac = remaining / this.cfg.durationSec;
     const urgent = remaining <= 5 && this.outro <= 0;
     const tp = this.timerPlate;
-    ctx.drawImage(tp.canvas, cx - 106, cy - 100);
+    if (this.q.extras) ctx.drawImage(tp.canvas, cx - 106, cy - 100);
+    else {
+      ctx.fillStyle = "rgba(5,36,17,0.78)";
+      ctx.beginPath();
+      ctx.arc(cx, cy, 92, 0, Math.PI * 2);
+      ctx.fill();
+    }
     ctx.lineWidth = 14;
     ctx.strokeStyle = "rgba(201,207,203,0.16)";
     ctx.beginPath();

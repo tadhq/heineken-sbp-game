@@ -733,7 +733,7 @@ export class CrateStacker implements Game<CrateResult> {
       ctx.fillRect(0, 0, W, H);
       ctx.globalAlpha = 1;
     }
-    drawPlate(ctx, this.scorePlate, 40, 48);
+    drawPlate(ctx, this.scorePlate, 40, 48, !this.q.extras);
     resetView(ctx, true);
     ctx.textAlign = "left";
     ctx.textBaseline = "alphabetic";
@@ -747,7 +747,7 @@ export class CrateStacker implements Game<CrateResult> {
       ctx.drawImage(chip.canvas, -chip.w / 2, -chip.h / 2);
     }
     // Height plate
-    drawPlate(ctx, this.heightPlate, 720, 48);
+    drawPlate(ctx, this.heightPlate, 720, 48, !this.q.extras);
     resetView(ctx, true);
     ctx.textAlign = "center";
     ctx.fillStyle = P.silver;
