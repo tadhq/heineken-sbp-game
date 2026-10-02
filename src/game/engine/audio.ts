@@ -42,6 +42,19 @@ const SFX = [
   "reveal",
   "unlock",
   "prize",
+  // Redesign pass
+  "perfectCatch",
+  "fill",
+  "full",
+  "serve",
+  "bonus",
+  "phase",
+  "spill",
+  "riser",
+  "great",
+  "stage",
+  "goldCrate",
+  "topple",
 ] as const;
 
 export type SfxName = (typeof SFX)[number];
@@ -363,7 +376,7 @@ class AudioEngine {
   }
 }
 
-const BIG = new Set<SfxName>(["golden", "hazard", "perfect", "fall", "end", "prize", "reveal", "unlock", "go"]);
+const BIG = new Set<SfxName>(["golden", "hazard", "perfect", "fall", "end", "prize", "reveal", "unlock", "go", "full", "bonus", "phase", "stage", "topple"]);
 
 /** One engine per page. */
 export const audio = new AudioEngine();

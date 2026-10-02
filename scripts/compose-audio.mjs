@@ -708,6 +708,77 @@ const SFX = {
     thud(b, 0.65, 70, 0.8);
     for (let k = 0; k < 9; k++) clink(b, 0.66 + rnd() * 0.25, 0.08);
   }, 0.25) },
+  // Star Catcher, beer glass and phases (redesign pass)
+  perfectCatch: { gain: -5, draw: () => fx(0.7, (b) => {
+    bell(b, 0, "E6", { ratio: 3.01, index: 1.2, decay: 0.16, dur: 0.5, gain: 0.3 });
+    bell(b, 0.03, "B6", { ratio: 2, index: 0.8, decay: 0.2, dur: 0.6, gain: 0.18, pan: 0.3 });
+    clink(b, 0, 0.09);
+    sweep(b, 0, 0.3, 6000, 12000, { gain: 0.07, shape: "fall" });
+  }, 0.3) },
+  // Fill cue, played at rising rates for 25/50/75%: fizz swell plus rising bubble pops.
+  fill: { gain: -10, draw: () => fx(0.55, (b) => {
+    sweep(b, 0, 0.4, 1500, 5000, { gain: 0.12, shape: "swell", q: 0.7 });
+    for (let k = 0; k < 6; k++) note(b, 0.04 + k * 0.05, 0.05, 72 + k * 2 + Math.round(rnd() * 2), { wave: "sine", glideFrom: 66 + k * 2, s: 0.3, d: 0.03, r: 0.03, gain: 0.16, pan: rnd() - 0.5 });
+  }, 0.2) },
+  full: { gain: -3, draw: () => fx(1.6, (b) => {
+    sweep(b, 0, 0.5, 800, 9000, { gain: 0.16, shape: "swell" });
+    kick(b, 0.42, { high: 130, low: 50, decay: 0.3, gain: 0.7 });
+    ["A5", "C#6", "E6", "A6"].forEach((n, i) => bell(b, 0.42 + i * 0.04, n, { ratio: 2, index: 1.2, decay: 0.35, dur: 1.1, gain: 0.18, pan: -0.45 + i * 0.3 }));
+    const bp = new Biquad().set("bp", 5200, 0.8);
+    for (let i = 0; i < 1.0 * SR; i++) {
+      const t = i / SR;
+      // Foam crackle: sparse noise grains, decaying.
+      if (rnd() < 0.04) put(b, Math.round(0.42 * SR) + i, bp.run(noise()) * Math.exp(-t / 0.4) * 0.5, rnd() - 0.5);
+    }
+  }, 0.4) },
+  serve: { gain: -8, draw: () => fx(0.7, (b) => {
+    sweep(b, 0, 0.45, 600, 3200, { gain: 0.22, q: 1.2 });
+    clink(b, 0.36, 0.14);
+  }, 0.25) },
+  bonus: { gain: -4, draw: () => fx(1.2, (b) => {
+    sweep(b, 0, 0.35, 400, 7000, { gain: 0.16, shape: "swell" });
+    kick(b, 0.32, { gain: 0.8, decay: 0.25 });
+    for (const n of ["A4", "E5", "A5", "C#6"]) note(b, 0.32, 0.45, n, { voices: 5, detune: 0.16, cutoff: 2600, env: 6000, envDecay: 0.15, s: 0.5, r: 0.3, gain: 0.09 });
+    crash(b, 0.32, { gain: 0.12, decay: 0.5 });
+  }, 0.35) },
+  phase: { gain: -6, draw: () => fx(1.0, (b) => {
+    sweep(b, 0, 0.5, 300, 6000, { gain: 0.2, shape: "swell", q: 0.9 });
+    kick(b, 0.48, { high: 100, low: 40, decay: 0.35, gain: 0.8 });
+    bell(b, 0.48, "E5", { ratio: 2, index: 1.4, decay: 0.3, dur: 0.6, gain: 0.16 });
+  }, 0.35) },
+  spill: { gain: -7, mono: true, draw: () => fx(0.6, (b) => {
+    const bp = new Biquad();
+    for (let i = 0; i < 0.5 * SR; i++) {
+      const t = i / SR;
+      if (i % 64 === 0) bp.set("bp", 2400 - t * 3200, 1.4);
+      put(b, i, bp.run(noise()) * Math.exp(-t / 0.14) * 0.7);
+    }
+  }) },
+  riser: { gain: -8, draw: () => fx(1.8, (b) => {
+    sweep(b, 0, 1.6, 200, 8000, { gain: 0.22, shape: "swell", q: 1.1 });
+    for (let k = 0; k < 8; k++) knock(b, 0.8 + k * 0.1 * (1 - k * 0.06), { freq: 1600 + k * 120, gain: 0.08 + k * 0.02 });
+  }, 0.3) },
+  // Crate Stacker (redesign pass)
+  great: { gain: -6, draw: () => fx(0.8, (b) => {
+    thud(b, 0, 98, 0.8);
+    clink(b, 0.01, 0.1);
+    ["E5", "A5"].forEach((n, i) => bell(b, 0.02 + i * 0.04, n, { ratio: 2, index: 1.2, decay: 0.2, dur: 0.6, gain: 0.16, pan: (i - 0.5) * 0.6 }));
+  }, 0.3) },
+  stage: { gain: -4, draw: () => fx(1.4, (b) => {
+    kick(b, 0, { gain: 0.8 });
+    ["D5", "F5", "A5", "D6"].forEach((n, i) => note(b, i * 0.08, 0.22, n, { voices: 4, detune: 0.14, cutoff: 2400, env: 5000, envDecay: 0.1, s: 0.5, r: 0.2, gain: 0.11 }));
+    crash(b, 0.24, { gain: 0.14, decay: 0.7 });
+  }, 0.4) },
+  goldCrate: { gain: -7, draw: () => fx(1.0, (b) => {
+    ["D6", "F#6", "A6", "D7"].forEach((n, i) => bell(b, i * 0.06, n, { ratio: 2, index: 1.1, decay: 0.3, dur: 0.8, gain: 0.15, pan: -0.5 + i * 0.33 }));
+  }, 0.45) },
+  topple: { gain: -3, draw: () => fx(1.6, (b) => {
+    thud(b, 0, 55, 1);
+    kick(b, 0.02, { high: 90, low: 32, decay: 0.45, gain: 0.8 });
+    for (let k = 0; k < 14; k++) clink(b, 0.03 + rnd() * 0.5, 0.07);
+    const lp = new Biquad().set("lp", 900, 0.7);
+    for (let i = 0; i < 0.9 * SR; i++) put(b, i, lp.run(noise()) * Math.exp(-i / SR / 0.25) * 0.5);
+  }, 0.3) },
   // Result and prize
   count: { gain: -20, mono: true, draw: () => fx(0.05, (b) => bell(b, 0, 1900, { ratio: 1, index: 0.3, decay: 0.012, dur: 0.05, gain: 0.4 })) },
   reveal: { gain: -4, draw: () => fx(1.2, (b) => {

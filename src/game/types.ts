@@ -15,6 +15,18 @@ export type GameLabels = {
   tapToDrop: string;
   combo: string;
   unstable: string;
+  // Redesign pass
+  phase: (n: number) => string;
+  phaseName: (n: number) => string;
+  stageName: (n: number) => string;
+  spill: string;
+  fullGlass: string;
+  bonus: string;
+  served: string;
+  great: string;
+  good: string;
+  sloppy: string;
+  goldCrate: string;
 };
 
 export type StarResult = { game: "star"; score: number; stats: StarStats; elapsedMs: number };

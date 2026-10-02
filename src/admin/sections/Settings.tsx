@@ -21,6 +21,13 @@ const STAR_FIELDS: NumField<StarConfig>[] = [
   { key: "chillDurationSec", label: "Ice slow-down (s)", step: 0.1 },
   { key: "comboStep", label: "Catches per multiplier step" },
   { key: "maxMultiplier", label: "Max multiplier" },
+  { key: "perfectBonus", label: "Perfect catch bonus" },
+  { key: "fillPerStar", label: "Glass fill per red star (0-1)", step: 0.01 },
+  { key: "fillPerGolden", label: "Glass fill per golden star", step: 0.01 },
+  { key: "fillHeatLoss", label: "Fill spilled by heat", step: 0.01 },
+  { key: "fillMissLoss", label: "Fill lost per missed star", step: 0.01 },
+  { key: "serveBonus", label: "Full glass bonus (points)" },
+  { key: "bonusSec", label: "Bonus window (s)", step: 0.5 },
 ];
 
 const CRATE_FIELDS: NumField<CrateConfig>[] = [
@@ -39,6 +46,8 @@ const CRATE_FIELDS: NumField<CrateConfig>[] = [
   { key: "heightBonus", label: "Height bonus per crate (end)" },
   { key: "comboStep", label: "Perfects per multiplier step" },
   { key: "maxMultiplier", label: "Max multiplier" },
+  { key: "goldenChance", label: "Golden crate chance", step: 0.01 },
+  { key: "goldenBonus", label: "Golden crate perfect bonus" },
 ];
 
 function NumGrid<T extends Record<string, unknown>>({ fields, value, onChange }: { fields: NumField<T>[]; value: T; onChange: (k: keyof T, v: number) => void }) {

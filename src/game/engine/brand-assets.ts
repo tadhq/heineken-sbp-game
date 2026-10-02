@@ -26,6 +26,10 @@ export type BrandImages = {
   crate: HTMLImageElement;
   /** Official star with keyline, cut from the logo (public/assets/brand/star.png, see ASSETS.md). */
   star: HTMLImageElement;
+  /** Supplied Heineken pint glass, transparent (Star Catcher catcher). */
+  glass: HTMLImageElement;
+  /** Supplied multipack photo (environment, hero, prize). */
+  multipack: HTMLImageElement;
   fx: Record<FxName, HTMLImageElement>;
 };
 
@@ -65,13 +69,15 @@ let loading: Promise<BrandImages> | null = null;
 /** Idempotent. Rejects only if an asset is missing; callers fall back to procedural art. */
 export function loadBrandImages(): Promise<BrandImages> {
   loading ??= (async () => {
-    const [logo, crate, star, ...fx] = await Promise.all([
+    const [logo, crate, star, glass, multipack, ...fx] = await Promise.all([
       rasteriseSvg(LOGO_SVG, LOGO_SCALE),
       loadImage("/assets/brand/crate.webp"),
       loadImage("/assets/brand/star.png"),
+      loadImage("/assets/brand/glass.webp"),
+      loadImage("/assets/brand/multipack.webp"),
       ...FX.map((n) => loadImage(`/assets/fx/${n}.png`)),
     ]);
-    return { logo, crate, star, fx: Object.fromEntries(FX.map((n, i) => [n, fx[i]])) as Record<FxName, HTMLImageElement> };
+    return { logo, crate, star, glass, multipack, fx: Object.fromEntries(FX.map((n, i) => [n, fx[i]])) as Record<FxName, HTMLImageElement> };
   })();
   loading.catch(() => (loading = null));
   return loading;

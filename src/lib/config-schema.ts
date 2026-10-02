@@ -33,6 +33,17 @@ export const starConfigSchema = z.object({
   /** Catches needed per multiplier step; multiplier = 1 + floor(combo / comboStep), capped. */
   comboStep: int(1, 50),
   maxMultiplier: int(1, 10),
+  // Beer glass (redesign pass). Defaults keep configs saved before these existed valid.
+  /** Extra points (before multipliers) for a catch near the centre of the glass. */
+  perfectBonus: int(0, 500).default(7),
+  /** Glass fill (0-1) per red star, per golden star; lost per heat hit and per missed red star. */
+  fillPerStar: num(0.01, 1).default(0.05),
+  fillPerGolden: num(0.01, 1).default(0.25),
+  fillHeatLoss: num(0, 1).default(0.3),
+  fillMissLoss: num(0, 1).default(0.04),
+  /** Points for serving a full glass, and the length of the bonus window it opens. */
+  serveBonus: int(0, 5000).default(30),
+  bonusSec: num(1, 30).default(7),
 });
 
 export const crateConfigSchema = z.object({
@@ -57,6 +68,9 @@ export const crateConfigSchema = z.object({
   accuracyBonus: int(0, 1000),
   comboStep: int(1, 50),
   maxMultiplier: int(1, 10),
+  /** Chance that a crate (from stage 2) is golden; a perfect drop on it pays goldenBonus. */
+  goldenChance: num(0, 0.5).default(0.12),
+  goldenBonus: int(0, 5000).default(60),
 });
 
 export const prizeSchema = z.object({

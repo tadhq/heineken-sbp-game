@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { type AppConfig, type GameId, resolvePrize } from "./config";
+import { type AppConfig, type GameId, resolvePrize, STAR_MAX_BONUS_MULT } from "./config";
 import { gameIdSchema } from "./config-schema";
 
 /**
@@ -15,11 +15,17 @@ export const starStatsSchema = z.object({
   missed: z.number().int().min(0),
   chills: z.number().int().min(0),
   bestCombo: z.number().int().min(0),
+  // Redesign pass; older kiosks omit them.
+  perfects: z.number().int().min(0).default(0),
+  served: z.number().int().min(0).default(0),
 });
 export const crateStatsSchema = z.object({
   height: z.number().int().min(0),
   perfects: z.number().int().min(0),
   bestCombo: z.number().int().min(0),
+  // Redesign pass; older kiosks omit them.
+  greats: z.number().int().min(0).default(0),
+  goldens: z.number().int().min(0).default(0),
 });
 export type StarStats = z.infer<typeof starStatsSchema>;
 export type CrateStats = z.infer<typeof crateStatsSchema>;
@@ -98,7 +104,14 @@ export function checkPlausibility(config: AppConfig, s: SessionPayload, received
     const maxObjects = Math.ceil(seconds / c.minSpawnInterval + 1) * MAX_OBJECTS_PER_SPAWN;
     if (st.caught + st.golden + st.hazards + st.missed + st.dodges > maxObjects) reasons.push("more objects than can spawn");
     if (st.golden > st.caught) reasons.push("golden exceeds caught");
-    const maxScore = (st.caught - st.golden) * c.starPoints * c.maxMultiplier + st.golden * c.goldenPoints * c.maxMultiplier + st.dodges * c.dodgeBonus;
+    if (st.perfects > st.caught) reasons.push("perfects exceed catches");
+    // Loose on purpose: fill amounts are tunable, but a glass never fills without a catch.
+    if (st.served > st.caught) reasons.push("more glasses served than catches");
+    const m = c.maxMultiplier * STAR_MAX_BONUS_MULT;
+    const maxScore =
+      ((st.caught - st.golden) * c.starPoints + st.golden * c.goldenPoints + st.perfects * c.perfectBonus) * m +
+      st.dodges * c.dodgeBonus * STAR_MAX_BONUS_MULT +
+      st.served * c.serveBonus * STAR_MAX_BONUS_MULT;
     if (s.score > maxScore) reasons.push(`score ${s.score} above bound ${maxScore}`);
     if (st.bestCombo > st.caught) reasons.push("combo exceeds catches");
   } else {
@@ -107,8 +120,9 @@ export function checkPlausibility(config: AppConfig, s: SessionPayload, received
     if (c.maxDurationSec > 0 && s.durationMs > c.maxDurationSec * 1000 + DURATION_SLACK_MS) reasons.push("longer than time cap");
     if (st.height > seconds / MIN_SECONDS_PER_DROP + 1) reasons.push("stack too high for duration");
     if (st.perfects > st.height || st.bestCombo > st.height) reasons.push("perfects/combo exceed height");
+    if (st.perfects + st.greats > st.height || st.goldens > st.height) reasons.push("grades exceed height");
     const perDrop = (c.placePoints + c.perfectBonus + c.accuracyBonus) * c.maxMultiplier;
-    const maxScore = st.height * (perDrop + c.heightBonus);
+    const maxScore = st.height * (perDrop + c.heightBonus) + st.goldens * c.goldenBonus * c.maxMultiplier;
     if (s.score > maxScore) reasons.push(`score ${s.score} above bound ${maxScore}`);
   }
 

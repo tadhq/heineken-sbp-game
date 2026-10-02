@@ -1,12 +1,15 @@
 import { H, W } from "./math";
 import { type BrandImages, LOGO_WORDMARK, logoRect } from "./brand-assets";
 import { PALETTE as P } from "./palette";
+import { STAR } from "../balance";
+import { drawnGlass, type GlassArt, makeGlassArt } from "./beer-glass";
+import { makeStageLights } from "./stage-lights";
 
 /**
- * All game art is drawn procedurally ONCE into offscreen canvases, then blitted with
- * drawImage each frame. No image files to download, decode or license, and no per-frame
- * path filling or shadowBlur (both expensive on weak mobile GPUs).
- * Placeholder art: swap for client-supplied brand artwork when available.
+ * All game art (brand images and procedural pieces) is baked ONCE into right-sized
+ * offscreen canvases, then blitted with drawImage each frame: no per-frame path filling
+ * or shadowBlur (both expensive on weak mobile GPUs). The procedural versions double as
+ * the fallback when brand images fail to load.
  */
 export type Sprite = { canvas: HTMLCanvasElement; cx: number; cy: number; w: number; h: number };
 
@@ -175,6 +178,8 @@ function proceduralSprites() {
     softDot("#ffffff", 22), // 5 white
     miniStar(P.starRed, 26), // 6 red mini star
     miniStar(P.gold, 30), // 7 gold mini star
+    softDot("#f0a51c", 26), // 8 beer droplet
+    softDot("#fff6e0", 30), // 9 foam
   ];
 
   return {
@@ -188,6 +193,20 @@ function proceduralSprites() {
     glowGreen: glow(P.bright, 360, 0.55),
     glowIce: glow(P.ice, 300, 0.6),
     ring: glow("#ffffff", 256, 0.5),
+    /** Foam crown that swells over the rim of a full glass. */
+    crown: makeSprite(220, 110, (ctx) => {
+      const puffs = [[40, 74, 30], [78, 58, 38], [118, 50, 42], [158, 60, 36], [190, 76, 26], [60, 84, 28], [140, 82, 30]];
+      for (const [x, y, r] of puffs) {
+        const g = ctx.createRadialGradient(x - r * 0.3, y - r * 0.35, r * 0.1, x, y, r);
+        g.addColorStop(0, "#ffffff");
+        g.addColorStop(0.7, "#f7efdc");
+        g.addColorStop(1, "#d9cdb0");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }, 110, 96),
     shadow: makeSprite(240, 60, (ctx) => {
       ctx.scale(1, 0.25);
       const g = ctx.createRadialGradient(120, 120, 10, 120, 120, 120);
@@ -272,7 +291,17 @@ function officialStar(img: BrandImages, width: number, recolor?: (ctx: CanvasRen
  */
 export function createSharedSprites(img: BrandImages | null) {
   const base = proceduralSprites();
-  if (!img) return { ...base, glass: null as GlassSprite | null, wordmark: null as Sprite | null, crateImage: null as HTMLImageElement | null };
+  if (!img) {
+    const g = drawnGlass();
+    return {
+      ...base,
+      glass: makeGlassArt(g.canvas, g.w, g.h, STAR.glassHeight) as GlassArt,
+      wordmark: null as Sprite | null,
+      crateImage: null as HTMLImageElement | null,
+      multipack: null as HTMLImageElement | null,
+      lights: makeStageLights(base.redStar),
+    };
+  }
   const fx = img.fx;
   const width = STAR_R * 2.15;
   const redStar = officialStar(img, width);
@@ -316,15 +345,18 @@ export function createSharedSprites(img: BrandImages | null) {
       tint(fx.star_09, 34, "#ffffff"), // 5 white sparkle
       tint(fx.flare_01, 44, "#ff4a3a"), // 6 red flare
       tint(fx.star_09, 48, P.gold), // 7 gold sparkle
+      tint(fx.star_08, 34, "#f0a51c"), // 8 beer droplet
+      tint(fx.star_08, 40, "#fff6e0"), // 9 foam
     ],
     glowGold: tint(fx.light_02, 420, P.gold, 0.85),
     glowRed: tint(fx.light_02, 260, "#ff3b1f", 0.8),
     glowGreen: tint(fx.light_02, 360, "#7dff7a", 0.6),
     glowIce: tint(fx.light_02, 300, P.ice, 0.8),
     ring: tint(fx.star_06, 256, "#ffffff"),
-    // Real glass photo, baked at on-screen size (the source has wide transparent margins).
-    // Star Catcher draws its own empty glass (owner preferred it over photo-based glasses).
-    glass: null as GlassSprite | null,
+    // Supplied Heineken pint glass, baked at on-screen size with its measured interior.
+    glass: makeGlassArt(img.glass, img.glass.naturalWidth, img.glass.naturalHeight, STAR.glassHeight) as GlassArt,
+    multipack: img.multipack as HTMLImageElement | null,
+    lights: makeStageLights(redStar),
     /** Crate packshot for Crate Stacker (drawn with per-crate source crops when sliced). */
     crateImage: img.crate as HTMLImageElement | null,
     wordmark: makeSprite(ww / LOGO_SCALE_FOR_CRATE, wh / LOGO_SCALE_FOR_CRATE, (ctx) => ctx.drawImage(img.logo, wx, wy, ww, wh, 0, 0, ww / LOGO_SCALE_FOR_CRATE, wh / LOGO_SCALE_FOR_CRATE)),
@@ -332,8 +364,6 @@ export function createSharedSprites(img: BrandImages | null) {
 }
 
 export type SharedSprites = ReturnType<typeof createSharedSprites>;
-/** Catcher art plus its play geometry: anchor at the catcher base, rim relative to it. */
-export type GlassSprite = Sprite & { rimHalf: number; rimHeight: number };
 
 /** Soft cinematic vignette shared by both games' backgrounds. */
 export function vignette(ctx: CanvasRenderingContext2D, strength = 0.6) {

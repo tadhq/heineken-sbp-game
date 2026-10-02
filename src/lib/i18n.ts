@@ -21,22 +21,23 @@ const nl = {
   games: {
     star: {
       name: "Star Catcher",
-      tagline: "Vang de sterren, ontwijk de hitte",
+      tagline: "Vang sterren, vul je glas, pak de bonus",
       rules: [
-        { icon: "redStar", text: "Vang rode sterren" },
-        { icon: "goldStar", text: "Gouden ster = grote bonus" },
-        { icon: "sun", text: "Ontwijk de hitte: kost punten" },
-        { icon: "ice", text: "IJsblokje vertraagt de tijd" },
+        { icon: "redStar", text: "Vang sterren: je glas vult zich" },
+        { icon: "glass", text: "Vol glas = BONUS x2. Nog een vol glas: x3" },
+        { icon: "goldStar", text: "Midden in het glas = PERFECT. Goud = groot" },
+        { icon: "sun", text: "Hitte morst je bier en breekt je reeks" },
       ],
       control: "Sleep je vinger om het glas te bewegen",
     },
     crate: {
       name: "Crate Stacker",
-      tagline: "Stapel zo hoog als je kunt",
+      tagline: "Timing, precisie, hoogte",
       rules: [
         { icon: "crate", text: "Tik om de krat te laten vallen" },
-        { icon: "goldStar", text: "Precies erop = PERFECT bonus" },
+        { icon: "goldStar", text: "Precies erop = PERFECT. Reeks = multiplier" },
         { icon: "redStar", text: "Wat uitsteekt valt eraf" },
+        { icon: "goldCrate", text: "Gouden krat: perfect = grote bonus" },
       ],
       control: "Eén tik per krat. Timing is alles.",
     },
@@ -62,6 +63,7 @@ const nl = {
     bestCombo: "Beste reeks",
     height: "Hoogte",
     perfects: "Perfect",
+    served: "Vol glas",
   },
   ageGate: {
     title: "Hoe oud ben je?",
@@ -134,6 +136,17 @@ const nl = {
     tapToDrop: "TIK OM TE LATEN VALLEN",
     combo: "COMBO",
     unstable: "WANKEL!",
+    phase: (n: number) => `FASE ${n}`,
+    phaseName: (n: number) => ["", "OPWARMEN", "OP STOOM", "DRUK", "CHAOS", "COMBO RUSH", "EINDSPURT"][n] ?? "",
+    stageName: (n: number) => ["", "RUSTIG", "SNELLER", "GOLVEND", "KRAAN", "VLAGEN", "EXTREEM"][n] ?? "",
+    spill: "GEMORST!",
+    fullGlass: "VOL GLAS!",
+    bonus: "BONUS",
+    served: "GESERVEERD",
+    great: "GEWELDIG!",
+    good: "GOED",
+    sloppy: "SCHEEF",
+    goldCrate: "GOUDEN KRAT!",
   } satisfies GameLabels,
 };
 
@@ -155,22 +168,23 @@ const en: Dict = {
   games: {
     star: {
       name: "Star Catcher",
-      tagline: "Catch the stars, dodge the heat",
+      tagline: "Catch stars, fill your glass, grab the bonus",
       rules: [
-        { icon: "redStar", text: "Catch red stars" },
-        { icon: "goldStar", text: "Golden star = big bonus" },
-        { icon: "sun", text: "Dodge the heat: it costs points" },
-        { icon: "ice", text: "Ice cube slows time" },
+        { icon: "redStar", text: "Catch stars to fill your glass" },
+        { icon: "glass", text: "Full glass = BONUS x2. Another one: x3" },
+        { icon: "goldStar", text: "Dead centre = PERFECT. Gold = big" },
+        { icon: "sun", text: "Heat spills your beer and breaks your streak" },
       ],
       control: "Drag your finger to move the glass",
     },
     crate: {
       name: "Crate Stacker",
-      tagline: "Stack as high as you can",
+      tagline: "Timing, precision, height",
       rules: [
         { icon: "crate", text: "Tap to drop the crate" },
-        { icon: "goldStar", text: "Dead on = PERFECT bonus" },
+        { icon: "goldStar", text: "Dead on = PERFECT. Streaks = multiplier" },
         { icon: "redStar", text: "Overhang falls off" },
+        { icon: "goldCrate", text: "Golden crate: perfect = big bonus" },
       ],
       control: "One tap per crate. Timing is everything.",
     },
@@ -196,6 +210,7 @@ const en: Dict = {
     bestCombo: "Best streak",
     height: "Height",
     perfects: "Perfect",
+    served: "Full glass",
   },
   ageGate: {
     title: "How old are you?",
@@ -268,6 +283,17 @@ const en: Dict = {
     tapToDrop: "TAP TO DROP",
     combo: "COMBO",
     unstable: "WOBBLY!",
+    phase: (n: number) => `PHASE ${n}`,
+    phaseName: (n: number) => ["", "WARM-UP", "MOMENTUM", "PRESSURE", "CHAOS", "COMBO RUSH", "FINAL PUSH"][n] ?? "",
+    stageName: (n: number) => ["", "STEADY", "SPEED UP", "EASED", "CRANE", "SURGE", "EXTREME"][n] ?? "",
+    spill: "SPILLED!",
+    fullGlass: "FULL GLASS!",
+    bonus: "BONUS",
+    served: "SERVED",
+    great: "GREAT!",
+    good: "GOOD",
+    sloppy: "OFF",
+    goldCrate: "GOLDEN CRATE!",
   },
 };
 

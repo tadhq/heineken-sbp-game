@@ -7,7 +7,7 @@
  * are cached too.
  */
 // Bump when files under /assets change in place (same path, new content).
-const CACHE = "hk-shell-v6";
+const CACHE = "hk-shell-v7";
 const SHELL = [
   "/",
   "/manifest.webmanifest",
@@ -18,6 +18,8 @@ const SHELL = [
   "/assets/brand/enjoy-responsibly.svg",
   "/assets/brand/crate.webp",
   "/assets/brand/bottle.webp",
+  "/assets/brand/glass.webp",
+  "/assets/brand/multipack.webp",
   "/assets/fx/star_09.png",
   "/assets/fx/flare_01.png",
   "/assets/fx/light_02.png",
@@ -26,7 +28,7 @@ const SHELL = [
   "/assets/fx/spark_03.png",
   "/assets/fx/star_04.png",
   // Keep in sync with SFX and TRACKS in src/game/engine/audio.ts.
-  ...["tap", "select", "back", "open", "close", "tick", "go", "catch", "golden", "hazard", "chill", "dodge", "combo", "miss", "milestone", "end", "slide", "drop", "land", "slice", "perfect", "unstable", "fall", "count", "reveal", "unlock", "prize"].map(
+  ...["tap", "select", "back", "open", "close", "tick", "go", "catch", "golden", "hazard", "chill", "dodge", "combo", "miss", "milestone", "end", "slide", "drop", "land", "slice", "perfect", "unstable", "fall", "count", "reveal", "unlock", "prize", "perfectCatch", "fill", "full", "serve", "bonus", "phase", "spill", "riser", "great", "stage", "goldCrate", "topple"].map(
     (n) => `/assets/sfx/${n}.ogg`,
   ),
   ...["lobby", "star-base", "star-energy", "crate-base", "crate-energy"].map((n) => `/assets/music/${n}.ogg`),

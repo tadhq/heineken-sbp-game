@@ -1,64 +1,72 @@
 import type { CrateConfig } from "@/lib/config";
 import type { CrateStats } from "@/lib/session";
+import { CRATE, CRATE_STAGES, type CrateStage, crateStageAt } from "./balance";
 import { audio } from "./engine/audio";
+import { CRATE_RIM } from "./engine/brand-assets";
 import { drawNumber, drawPlate, Juice, makeChip, makePlate } from "./engine/hud";
 import { clamp, damp, easeOutCubic, H, lerp, place, rand, resetView, view, W } from "./engine/math";
 import { PALETTE as P } from "./engine/palette";
 import { Particles } from "./engine/particles";
 import { Popups } from "./engine/popups";
 import type { Game, Quality } from "./engine/runner";
-import { CRATE_RIM } from "./engine/brand-assets";
-import { beams, bokeh, brandBackdrop, makeSprite, type SharedSprites, type Sprite, starPath, vignette } from "./engine/sprites";
+import { brandBackdrop, makeSprite, type SharedSprites, type Sprite, starPath, vignette } from "./engine/sprites";
+import { drawCones } from "./engine/stage-lights";
 import type { CrateResult, GameLabels } from "./types";
 
 /*
- * CRATE STACKER
- * A crate slides across above the stack; tap to drop it. Whatever overhangs is sliced
- * off and falls, so the stack narrows with every imprecise drop: width is the resource
- * and failure explains itself. A drop within the tolerance is PERFECT: no width lost,
- * streak grows, multiplier climbs, and every few perfects the crate regains width.
- * Speed rises with height. Placement is deterministic (no physics engine): sway after a
- * sloppy drop is a damped spring that only affects rendering, never the outcome.
+ * CRATE STACKER (redesign, GAME_DESIGN.md §4)
+ * A crate moves above the stack; tap to drop it. Overhang is sliced off, so width is the
+ * resource. Each drop is graded: PERFECT (no width lost, streak grows), GREAT (streak
+ * kept), GOOD/OFF (multiplier drops one step). Stages change HOW the crate moves (steady,
+ * eased, crane swing, surges), golden crates pay out for a perfect drop, and the camera
+ * zooms out as the tower grows. Placement stays deterministic arithmetic; sway, tremble
+ * and the topple are presentation only.
  */
 
 const CRATE_H = 96;
-const DX = 34; // oblique depth: top face shifts right…
+const DX = 34; // oblique depth of the procedural crate: top face shifts right…
 const DY = 30; // …and up
 const GROUND_Y = 1660;
 const HOVER = 70;
-const MOVER_SCREEN_Y = 940;
-// Feedback text lives in fixed slots between the HUD and the hovering crate, never on it.
-const SLOT_PERFECT = 330;
-const SLOT_MULT = 440;
-const SLOT_BANNER = 430;
+const MOVER_SCREEN_Y = 900;
+const SLOT_GRADE = 360;
+const SLOT_MULT = 470;
+const SLOT_BANNER = 600;
 const MIN_X = 70;
 const MAX_X = W - 70 - DX;
-const OUTRO_S = 2.4;
+const OUTRO_S = 2.8;
 const IDLE_END_S = 15;
 const SCORE_AT = { x: 170, y: 160 };
+const RIG_Y = 196;
+const METER = { x: W / 2, y: 292, w: 420 };
+
+type Grade = "perfect" | "great" | "good" | "off";
 
 /** u0..u1: which horizontal slice of the crate photo this crate shows (slicing cuts the photo). */
-type Crate = { x: number; w: number; u0: number; u1: number };
-type Debris = { on: boolean; x: number; y: number; w: number; vx: number; vy: number; rot: number; vrot: number; shade: number; u0: number; u1: number };
+type Crate = { x: number; w: number; u0: number; u1: number; golden: boolean };
+type Debris = { on: boolean; x: number; y: number; w: number; vx: number; vy: number; rot: number; vrot: number; shade: number; u0: number; u1: number; golden: boolean; fatal: boolean };
 
 export class CrateStacker implements Game<CrateResult> {
   private stack: Crate[] = [];
-  private mover: Crate = { x: 0, w: 0, u0: 0, u1: 1 };
+  private mover: Crate = { x: 0, w: 0, u0: 0, u1: 1, golden: false };
   private dir = 1;
   private dropping = false;
   private dropY = 0;
   private dropV = 0;
-  private debris: Debris[] = Array.from({ length: 6 }, () => ({ on: false, x: 0, y: 0, w: 0, vx: 0, vy: 0, rot: 0, vrot: 0, shade: 0, u0: 0, u1: 1 }));
-  /** Official crate packshot when loaded; procedural crate otherwise. */
-  /** Crate photo pre-scaled to its on-screen width (no per-frame resampling of the 1000 px source). */
+  private debris: Debris[] = Array.from({ length: 6 }, () => ({ on: false, x: 0, y: 0, w: 0, vx: 0, vy: 0, rot: 0, vrot: 0, shade: 0, u0: 0, u1: 1, golden: false, fatal: false }));
+  /** Crate photo pre-scaled to its on-screen width (no per-frame resampling of the source). */
   private img: HTMLCanvasElement | null = null;
+  private goldImg: HTMLCanvasElement | null = null;
   /** Height of one stack level (the crate's front face) and of the open top above it. */
   private crateH = CRATE_H;
   private crateTop = DY;
   private particles: Particles;
   private popups: Popups;
   private bg: Sprite;
+  private bgLow: Sprite | null = null;
   private far: Sprite;
+  private mid: Sprite;
+  private pallet: Sprite;
   private body: Sprite;
   private badge: Sprite;
   private q!: Quality;
@@ -67,9 +75,14 @@ export class CrateStacker implements Game<CrateResult> {
   private score = 0;
   private shown = 0;
   private combo = 0;
+  /** Perfects toward the multiplier; an OFF drop takes it back one step. */
+  private streak = 0;
   private mult = 1;
-  private stats: CrateStats = { height: 0, perfects: 0, bestCombo: 0 };
+  private stats: CrateStats = { height: 0, perfects: 0, bestCombo: 0, greats: 0, goldens: 0 };
+  private stageIdx = 0;
+  /** Camera: world offset (oy) and zoom (z), both eased. */
   private cam = 0;
+  private zoom = 1;
   private wob = 0;
   private wobV = 0;
   private landT = 0;
@@ -77,13 +90,20 @@ export class CrateStacker implements Game<CrateResult> {
   private shakeT = 0;
   private flashT = 0;
   private bannerT = 0;
+  private bannerDur = 1.1;
   private banner = "";
+  private bannerSub = "";
   private hintT = 0;
   private outro = 0;
   private done = false;
   private bonusShown = false;
   /** Seconds since the last tap: a walked-away player ends the run instead of blocking the kiosk. */
   private idle = 0;
+  /** Motion state: phase for eased/crane, surge factor and its timer. */
+  private motionT = 0;
+  private surgeK = 1;
+  private surgeT = 0;
+  private swing = 0;
   private juice = new Juice();
   private scorePlate: Sprite;
   private heightPlate: Sprite;
@@ -98,6 +118,9 @@ export class CrateStacker implements Game<CrateResult> {
   private zoomPulse = 0;
   /** Narrow or leaning tower: extra render-only sway and a one-time warning. */
   private unstable = false;
+  /** Last drop for the precision meter: offset as a fraction of the crate width, grade, age. */
+  private meter = { off: 0, grade: "off" as Grade, t: 0, tol: 0 };
+  private impactDone = false;
 
   constructor(
     private cfg: CrateConfig,
@@ -106,49 +129,32 @@ export class CrateStacker implements Game<CrateResult> {
     private labels: GameLabels,
   ) {
     this.particles = new Particles(220, sprites.particles);
-    this.popups = new Popups(12, font);
-    this.bg = makeSprite(W, H, (ctx) => {
-      brandBackdrop(ctx, W / 2, H * 0.3);
-      beams(ctx, 4, 0.05);
-      vignette(ctx, 0.45);
-    });
-    // Tileable far layer, scrolled at a fraction of camera speed for parallax.
-    this.far = makeSprite(W, H, (ctx) => {
-      bokeh(ctx, 22, H, 42);
-      // Distant warehouse racking: tall uprights with cross-bracing, barely there.
-      ctx.strokeStyle = "rgba(170,255,170,0.05)";
-      ctx.lineWidth = 6;
-      for (const x of [90, 300, 780, 990]) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, H);
-        ctx.stroke();
+    this.popups = new Popups(14, font);
+    this.bg = makeSprite(W, H, (ctx) => this.paintBackground(ctx, false));
+    this.far = makeSprite(W, H, (ctx) => this.paintRacking(ctx, 0.62, 0.38, 11));
+    this.mid = makeSprite(W, H, (ctx) => this.paintRacking(ctx, 1, 0.6, 23));
+    this.pallet = makeSprite(cfg.startWidth + 120, 70, (ctx) => {
+      const w = cfg.startWidth + 120;
+      // Wooden pallet: deck boards over three blocks, lit from above.
+      ctx.fillStyle = "#4a3418";
+      for (const x of [10, w / 2 - 30, w - 70]) ctx.fillRect(x, 26, 60, 40);
+      for (let i = 0; i < 6; i++) {
+        const g = ctx.createLinearGradient(0, 4, 0, 26);
+        g.addColorStop(0, "#b98a4e");
+        g.addColorStop(1, "#7a5528");
+        ctx.fillStyle = g;
+        ctx.fillRect(i * (w / 6) + 3, 4, w / 6 - 6, 22);
       }
-      ctx.lineWidth = 3;
-      for (const [a, b] of [[90, 300], [780, 990]])
-        for (let y = 0; y < H; y += 320) {
-          ctx.beginPath();
-          ctx.moveTo(a, y);
-          ctx.lineTo(b, y + 160);
-          ctx.lineTo(a, y + 320);
-          ctx.moveTo(a, y + 160);
-          ctx.lineTo(b, y + 160);
-          ctx.stroke();
-        }
-      ctx.fillStyle = "rgba(255,255,255,0.5)";
-      let s = 9;
-      const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
-      for (let i = 0; i < 60; i++) ctx.fillRect(rnd() * W, rnd() * H, 2 + rnd() * 2, 2 + rnd() * 2);
+      ctx.fillStyle = "rgba(255,240,200,0.35)";
+      ctx.fillRect(0, 4, w, 2);
     });
     this.body = makeSprite(8, CRATE_H, (ctx) => {
       const g = ctx.createLinearGradient(0, 0, 0, CRATE_H);
-      // Heineken crate green, moulded plastic: bright lip, darker body.
       g.addColorStop(0, "#3fb04a");
       g.addColorStop(0.1, "#16862f");
       g.addColorStop(1, "#0a5a22");
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, 8, CRATE_H);
-      // Slat grooves
       ctx.fillStyle = "rgba(0,0,0,0.28)";
       for (const y of [30, 58, 80]) ctx.fillRect(0, y, 8, 4);
       ctx.fillStyle = "rgba(255,255,255,0.12)";
@@ -171,9 +177,26 @@ export class CrateStacker implements Game<CrateResult> {
     const photo = sprites.crateImage;
     if (photo) {
       const aspect = photo.naturalHeight / photo.naturalWidth;
-      this.img = makeSprite(Math.round(cfg.startWidth), Math.round(cfg.startWidth * aspect), (c) => {
+      const w = Math.round(cfg.startWidth);
+      const h = Math.round(cfg.startWidth * aspect);
+      this.img = makeSprite(w, h, (c) => {
         c.imageSmoothingQuality = "high";
-        c.drawImage(photo, 0, 0, Math.round(cfg.startWidth), Math.round(cfg.startWidth * aspect));
+        c.drawImage(photo, 0, 0, w, h);
+      }).canvas;
+      // Golden crate: the same packshot, gilded (multiply gold, then a light sheen).
+      this.goldImg = makeSprite(w, h, (c) => {
+        c.drawImage(this.img!, 0, 0);
+        c.globalCompositeOperation = "source-atop";
+        c.globalAlpha = 0.62;
+        const g = c.createLinearGradient(0, 0, w, h);
+        g.addColorStop(0, "#fff0b0");
+        g.addColorStop(0.45, "#ffc94a");
+        g.addColorStop(1, "#b97d10");
+        c.fillStyle = g;
+        c.fillRect(0, 0, w, h);
+        c.globalAlpha = 0.3;
+        c.globalCompositeOperation = "lighter";
+        c.fillRect(0, 0, w, h * 0.3);
       }).canvas;
       this.crateH = cfg.startWidth * aspect * (1 - CRATE_RIM);
       this.crateTop = cfg.startWidth * aspect * CRATE_RIM;
@@ -187,9 +210,54 @@ export class CrateStacker implements Game<CrateResult> {
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, 4, 32);
     });
-    this.stack.push({ x: W / 2 - cfg.startWidth / 2 - (this.img ? 0 : DX / 2), w: cfg.startWidth, u0: 0, u1: 1 });
+    this.stack.push({ x: W / 2 - cfg.startWidth / 2 - (this.img ? 0 : DX / 2), w: cfg.startWidth, u0: 0, u1: 1, golden: false });
     this.spawnMover();
     this.hintT = 99;
+  }
+
+  /** Screen-fixed hall: brand green, back wall, stage rig. Baked. */
+  private paintBackground(ctx: CanvasRenderingContext2D, withLights: boolean) {
+    brandBackdrop(ctx, W / 2, H * 0.28);
+    const shade = ctx.createLinearGradient(0, 0, 0, H);
+    shade.addColorStop(0, "rgba(2,20,9,0.35)");
+    shade.addColorStop(0.5, "rgba(2,20,9,0.1)");
+    shade.addColorStop(1, "rgba(2,20,9,0.5)");
+    ctx.fillStyle = shade;
+    ctx.fillRect(0, 0, W, H);
+    vignette(ctx, 0.5);
+    if (withLights) drawCones(ctx, this.sprites.lights, 0, 0.3, "stage", 0, RIG_Y, 0.7);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(this.sprites.lights.rig.canvas, 0, RIG_Y);
+  }
+
+  /** Tileable warehouse racking stocked with multipacks; two depths for parallax. */
+  private paintRacking(ctx: CanvasRenderingContext2D, scale: number, light: number, seed: number) {
+    let s = seed;
+    const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
+    const mp = this.sprites.multipack;
+    const bay = 300 * scale;
+    const level = 300 * scale;
+    // Racks only at the sides: the tower's column stays clean.
+    const xs = scale < 1 ? [-40, 230, W - 230 - bay + 40, W - bay + 40] : [-bay * 0.55, W - bay * 0.45];
+    for (const x0 of xs) {
+      for (let y = 0; y < H; y += level) {
+        if (mp && rnd() > 0.2) {
+          const mw = bay * 0.82;
+          const mh = (mp.naturalHeight / mp.naturalWidth) * mw;
+          ctx.filter = `brightness(${light}) saturate(0.8)${scale < 1 ? " blur(1.5px)" : ""}`;
+          ctx.drawImage(mp, x0 + bay * 0.08, y + level - mh - 6, mw, mh);
+          ctx.filter = "none";
+        }
+        ctx.fillStyle = `rgba(${scale < 1 ? "150,40,30" : "190,50,35"},${0.35 * light + 0.2})`;
+        ctx.fillRect(x0, y + level - 8, bay, 8);
+      }
+      ctx.fillStyle = `rgba(30,60,45,${0.5 + light * 0.3})`;
+      ctx.fillRect(x0, 0, 10 * scale, H);
+      ctx.fillRect(x0 + bay - 10 * scale, 0, 10 * scale, H);
+    }
+    // Atmospheric haze toward the far layer.
+    ctx.fillStyle = `rgba(6,45,22,${scale < 1 ? 0.45 : 0.15})`;
+    ctx.fillRect(0, 0, W, H);
   }
 
   private chip(n: number) {
@@ -201,6 +269,7 @@ export class CrateStacker implements Game<CrateResult> {
   setQuality(q: Quality) {
     this.q = q;
     this.particles.limit = q.particles;
+    if (!q.extras && !this.bgLow) this.bgLow = makeSprite(W, H, (ctx) => this.paintBackground(ctx, true));
   }
 
   get finished() {
@@ -221,14 +290,19 @@ export class CrateStacker implements Game<CrateResult> {
     audio.play("drop", 1, 0.8, ((this.mover.x + this.mover.w / 2) / W - 0.5) * 0.8);
   }
 
-  private botAim = 0;
+  /** QA/balance bot. `skill` 0-1: timing error and reaction scatter, as a human's. */
+  skill = 0.75;
+  private botAim: number | null = null;
   autopilot() {
-    if (this.dropping || this.outro > 0) return;
+    if (this.dropping || this.outro > 0 || this.elapsed < 0.4) return;
     const top = this.stack[this.stack.length - 1];
-    // Aim error grows with height, so runs end on their own like a human's would.
-    if (!this.botAim) this.botAim = rand(2, 10 + this.level * 2.5);
-    if (Math.abs(this.mover.x - top.x) < this.botAim && this.elapsed > 0.4) {
-      this.botAim = 0;
+    // Timing error in px grows with crate speed (harder stages) and shrinks with skill.
+    if (this.botAim === null) {
+      const err = lerp(26, 4, this.skill) * (0.6 + this.speed / 900) * (this.stage.motion === "crane" || this.stage.motion === "surge" ? 1.4 : 1);
+      this.botAim = rand(-err, err) + rand(-err, err) * 0.5;
+    }
+    if (Math.abs(this.mover.x - (top.x + this.botAim)) < Math.max(3, this.speed / 120)) {
+      this.botAim = null;
       this.pointer("down");
     }
   }
@@ -236,19 +310,33 @@ export class CrateStacker implements Game<CrateResult> {
   private get level() {
     return this.stack.length;
   }
+  private get stage(): CrateStage {
+    return CRATE_STAGES[this.stageIdx];
+  }
   private yOf(level: number) {
     return GROUND_Y - level * this.crateH;
   }
   private get speed() {
     const c = this.cfg;
-    return Math.min(c.maxSpeed, c.startSpeed + (this.level - 1) * c.speedPerLevel);
+    return Math.min(c.maxSpeed, c.startSpeed + (this.level - 1) * c.speedPerLevel) * this.stage.speed;
+  }
+  private get tolerance() {
+    return this.cfg.perfectTolerance * this.stage.tolerance;
   }
 
   private spawnMover() {
     const top = this.stack[this.stack.length - 1];
     this.dir = this.level % 2 ? 1 : -1;
-    this.mover = { w: top.w, x: this.dir > 0 ? MIN_X : MAX_X - top.w, u0: top.u0, u1: top.u1 };
+    const golden = this.stage.golden && Math.random() < this.cfg.goldenChance;
+    this.mover = { w: top.w, x: this.dir > 0 ? MIN_X : MAX_X - top.w, u0: top.u0, u1: top.u1, golden };
+    this.motionT = this.dir > 0 ? 0 : 1;
+    this.surgeK = 1;
+    this.surgeT = 0;
     this.dropping = false;
+    if (golden) {
+      audio.play("goldCrate");
+      this.popups.show(this.labels.goldCrate, W / 2, SLOT_MULT, P.gold, 72, 1, 30);
+    }
   }
 
   // ---------------- simulation ----------------
@@ -260,6 +348,7 @@ export class CrateStacker implements Game<CrateResult> {
     this.flashT = Math.max(0, this.flashT - dt);
     this.bannerT = Math.max(0, this.bannerT - dt);
     this.hintT = Math.max(0, this.hintT - dt);
+    this.meter.t = Math.max(0, this.meter.t - dt);
     this.shown += (this.score - this.shown) * damp(10, dt);
     if (Math.abs(this.score - this.shown) < 0.5) this.shown = this.score;
 
@@ -279,14 +368,32 @@ export class CrateStacker implements Game<CrateResult> {
       d.x += d.vx * dt;
       d.y += d.vy * dt;
       d.rot += d.vrot * dt;
-      if (d.y > this.yOf(0) + H) d.on = false;
+      // The failed crate hits the floor: the run ends on an impact, not a cut.
+      if (d.fatal && !this.impactDone && d.y + this.crateH > GROUND_Y) {
+        this.impactDone = true;
+        audio.play("topple");
+        this.shakeT = this.q.shake ? 0.45 : 0;
+        const [sx, sy] = this.toScreen(d.x + d.w / 2, GROUND_Y);
+        this.particles.burst(sx, sy, 26, 9, 520, { life: 0.9, up: 220, gravity: 300 });
+        this.particles.burst(sx, sy, 12, 5, 300, { life: 0.6, size: 1.3, gravity: -60 });
+        d.vy = -d.vy * 0.25;
+        d.vx *= 0.4;
+        d.vrot *= 0.4;
+      }
+      if (d.y > GROUND_Y + 600) d.on = false;
     }
     this.particles.update(dt);
     this.popups.update(dt);
 
+    // Camera: zoom out with height; keep the floor pinned until the mover needs the room.
+    const z = lerp(1, CRATE.zoomMin, clamp(this.stats.height / CRATE.zoomFullAt, 0, 1));
+    this.zoom += (z - this.zoom) * damp(3, dt);
+    const moverY = this.yOf(this.level) - HOVER;
+    this.cam += (Math.max(GROUND_Y / this.zoom - GROUND_Y, MOVER_SCREEN_Y / this.zoom - moverY) - this.cam) * damp(5, dt);
+
     if (this.outro > 0) {
       this.outro -= dt;
-      if (!this.bonusShown && this.outro < OUTRO_S - 0.9) {
+      if (!this.bonusShown && this.outro < OUTRO_S - 1.1) {
         this.bonusShown = true;
         if (this.stats.height > 0 && this.cfg.heightBonus > 0) {
           const bonus = this.stats.height * this.cfg.heightBonus;
@@ -301,31 +408,70 @@ export class CrateStacker implements Game<CrateResult> {
 
     this.elapsed += dt;
     this.idle += dt;
-    // Adaptive music: energy rises with the multiplier and the height of the tower.
+    // Adaptive music: multiplier, tower height, instability and late stages raise the energy.
     const multFrac = (this.mult - 1) / Math.max(1, this.cfg.maxMultiplier - 1);
-    audio.intensity(Math.max(multFrac, clamp((this.stats.height - 4) / 20, 0, 1), this.unstable ? 0.7 : 0));
+    audio.intensity(Math.max(multFrac, clamp((this.stats.height - 4) / 20, 0, 1), this.unstable ? 0.7 : 0, this.stageIdx >= 4 ? 0.85 : 0));
     if (this.cfg.maxDurationSec > 0 && this.elapsed >= this.cfg.maxDurationSec) return this.gameOver(this.labels.timeUp);
     if (this.idle > IDLE_END_S) return this.gameOver(this.labels.gameOver);
-
-    const moverY = this.yOf(this.level) - HOVER;
-    this.cam += (Math.max(0, MOVER_SCREEN_Y - moverY) - this.cam) * damp(5, dt);
 
     if (this.dropping) {
       this.dropV += 5200 * dt;
       this.dropY += this.dropV * dt;
+      this.swing *= 1 - damp(14, dt);
       if (this.dropY >= HOVER) this.land();
       return;
     }
+    this.move(dt);
+  }
+
+  private move(dt: number) {
     const m = this.mover;
-    m.x += this.dir * this.speed * dt;
-    if (m.x <= MIN_X) {
-      m.x = MIN_X;
-      this.dir = 1;
-      audio.play("slide", 1, 0.7, -0.6);
-    } else if (m.x + m.w >= MAX_X) {
-      m.x = MAX_X - m.w;
-      this.dir = -1;
-      audio.play("slide", 1, 0.7, 0.6);
+    const span = MAX_X - m.w - MIN_X;
+    const sp = this.speed;
+    switch (this.stage.motion) {
+      case "pingpong":
+      case "surge": {
+        if (this.stage.motion === "surge") {
+          this.surgeT -= dt;
+          if (this.surgeT <= 0) {
+            this.surgeT = CRATE.surgeEvery * rand(0.7, 1.3);
+            this.surgeK = 1 + rand(-CRATE.surge, CRATE.surge);
+          }
+        }
+        m.x += this.dir * sp * this.surgeK * dt;
+        if (m.x <= MIN_X) {
+          m.x = MIN_X;
+          this.dir = 1;
+          audio.play("slide", 1, 0.7, -0.6);
+        } else if (m.x >= MIN_X + span) {
+          m.x = MIN_X + span;
+          this.dir = -1;
+          audio.play("slide", 1, 0.7, 0.6);
+        }
+        break;
+      }
+      case "eased": {
+        // Same average speed as ping-pong, but sinusoidal: quick through the middle,
+        // lingering at the ends. Linear timing habits stop working.
+        this.motionT += (this.dir * sp * dt) / Math.max(1, span);
+        if (this.motionT >= 1 || this.motionT <= 0) {
+          this.motionT = clamp(this.motionT, 0, 1);
+          this.dir = -this.dir;
+          audio.play("slide", 1, 0.6, this.motionT > 0.5 ? 0.6 : -0.6);
+        }
+        m.x = MIN_X + span * (0.5 - 0.5 * Math.cos(Math.PI * this.motionT));
+        break;
+      }
+      case "crane": {
+        // Pendulum from a hook over the centre. Amplitude fits the crate on screen.
+        const amp = Math.min(CRATE.craneAmp, span / 2);
+        const period = CRATE.cranePeriod * (this.cfg.startSpeed / Math.max(1, sp)) ** 0.5 * 1.25;
+        this.motionT += dt / period;
+        const th = Math.sin(this.motionT * Math.PI * 2);
+        m.x = MIN_X + span / 2 + amp * th;
+        this.swing = Math.cos(this.motionT * Math.PI * 2) * 0.09;
+        break;
+      }
     }
   }
 
@@ -338,21 +484,27 @@ export class CrateStacker implements Game<CrateResult> {
     const right = Math.min(cur.x + cur.w, prev.x + prev.w);
     const overlap = right - left;
     const y = this.yOf(this.level);
+    const tol = this.tolerance;
 
     if (overlap <= 0) {
-      this.spawnDebris(cur.x, y, cur.w, offset > 0 ? 1 : -1, cur.u0, cur.u1);
+      this.spawnDebris(cur.x, y, cur.w, offset > 0 ? 1 : -1, cur.u0, cur.u1, cur.golden, true);
+      this.wobV += Math.sign(offset) * 10;
+      this.meterShow(offset / cur.w, "off");
       audio.play("fall");
       return this.gameOver(this.labels.gameOver);
     }
 
-    const perfect = Math.abs(offset) <= c.perfectTolerance;
+    const grade: Grade = Math.abs(offset) <= tol ? "perfect" : Math.abs(offset) <= tol * CRATE.greatFactor ? "great" : overlap / cur.w >= 0.8 ? "good" : "off";
+    const perfect = grade === "perfect";
     let placed: Crate;
     if (perfect) {
-      placed = { ...prev };
+      placed = { ...prev, golden: cur.golden };
       this.combo++;
+      this.streak++;
       this.stats.perfects++;
-      if (this.combo % c.regrowAfter === 0 && placed.w < c.startWidth) {
-        const grow = Math.min(c.regrowAmount, c.startWidth - placed.w);
+      const regrow = (this.combo % c.regrowAfter === 0 ? c.regrowAmount : 0) + (cur.golden ? c.regrowAmount : 0);
+      if (regrow > 0 && placed.w < c.startWidth) {
+        const grow = Math.min(regrow, c.startWidth - placed.w);
         // The photo slice widens with the crate, never past the full crate.
         const du = (grow / c.startWidth) * 0.5;
         placed.u0 = Math.max(0, placed.u0 - du);
@@ -366,51 +518,73 @@ export class CrateStacker implements Game<CrateResult> {
       const span = cur.u1 - cur.u0;
       const uL = cur.u0 + ((left - cur.x) / cur.w) * span;
       const uR = cur.u0 + ((right - cur.x) / cur.w) * span;
-      placed = { x: left, w: overlap, u0: uL, u1: uR };
+      placed = { x: left, w: overlap, u0: uL, u1: uR, golden: cur.golden };
       const cutW = cur.w - overlap;
-      if (offset > 0) this.spawnDebris(right, y, cutW, 1, uR, cur.u1);
-      else this.spawnDebris(cur.x, y, cutW, -1, cur.u0, uL);
-      if (this.combo >= c.comboStep) this.popups.show(this.labels.comboLost, W / 2, SLOT_PERFECT, P.silver, 60, 0.9, 40);
-      this.combo = 0;
+      if (offset > 0) this.spawnDebris(right, y, cutW, 1, uR, cur.u1, cur.golden);
+      else this.spawnDebris(cur.x, y, cutW, -1, cur.u0, uL, cur.golden);
+      if (grade === "great") this.stats.greats++;
+      else {
+        if (this.combo >= c.comboStep) this.popups.show(this.labels.comboLost, W / 2, SLOT_MULT, P.silver, 60, 0.9, 40);
+        this.combo = 0;
+        // Breaking precision costs one multiplier step, not everything.
+        this.streak = Math.max(0, (this.mult - 2) * c.comboStep);
+      }
       this.wobV += Math.sign(offset) * Math.min(1, Math.abs(offset) / prev.w) * 14;
       audio.play("slice", 1 + rand(-0.05, 0.05));
     }
     this.stats.bestCombo = Math.max(this.stats.bestCombo, this.combo);
     this.stack.push(placed);
     this.stats.height++;
+    this.meterShow(offset / cur.w, grade);
 
+    const prevMult = this.mult;
+    this.mult = Math.min(c.maxMultiplier, 1 + Math.floor(this.streak / c.comboStep));
     const accuracy = overlap / cur.w;
-    this.mult = Math.min(c.maxMultiplier, 1 + Math.floor(this.combo / c.comboStep));
-    const pts = (c.placePoints + Math.round(accuracy * c.accuracyBonus) + (perfect ? c.perfectBonus : 0)) * this.mult;
+    const gradeBonus = perfect ? c.perfectBonus : grade === "great" ? Math.round(c.perfectBonus * 0.4) : 0;
+    let pts = (c.placePoints + Math.round(accuracy * c.accuracyBonus) + gradeBonus) * this.mult;
+    if (perfect && cur.golden) {
+      this.stats.goldens++;
+      pts += c.goldenBonus * this.mult;
+    }
     this.score += pts;
     this.landT = 0.18;
-    // Effects render in screen space: world y + camera offset.
-    const sx = placed.x + placed.w / 2;
-    const sy = y - this.crateH + this.cam;
+    const [sx, sy] = this.toScreen(placed.x + placed.w / 2, y - this.crateH);
+    const [, floorY] = this.toScreen(0, y);
     const pan = (sx / W - 0.5) * 0.8;
-    audio.play("land", 1 + Math.min(this.level, 30) * 0.004 + rand(-0.03, 0.03), 1, pan);
+    audio.play(perfect ? "perfect" : grade === "great" ? "great" : "land", perfect ? Math.min(2, 1 + (this.combo - 1) * 0.06) : 1 + rand(-0.03, 0.03), 1, pan);
     // Dust kicks out from under both corners; the camera dips with the impact.
-    for (const cx of [placed.x + 8, placed.x + placed.w - 8]) this.particles.burst(cx, y + this.cam - 4, 4, 5, 240, { life: 0.45, size: 0.8, gravity: -80, up: 60 });
+    for (const cx of [placed.x + 8, placed.x + placed.w - 8]) {
+      const [dx] = this.toScreen(cx, y);
+      this.particles.burst(dx, floorY - 4, 4, 5, 240, { life: 0.45, size: 0.8, gravity: -80, up: 60 });
+    }
     if (this.q.shake) this.kickV += perfect ? 420 : 240;
     this.juice.fly(this.sprites.particles[perfect ? 7 : 5], sx, sy, SCORE_AT.x, SCORE_AT.y, perfect ? 1.3 : 0.9, 0.42, () => (this.scoreBump = 1));
 
+    const gradeText = perfect ? (this.combo > 1 ? `${this.labels.perfect} x${this.combo}` : this.labels.perfect) : grade === "great" ? this.labels.great : grade === "good" ? this.labels.good : this.labels.sloppy;
+    const gradeColor = perfect ? P.gold : grade === "great" ? P.bright : grade === "good" ? P.cream : P.silver;
+    this.popups.show(gradeText, W / 2, SLOT_GRADE, gradeColor, perfect ? 100 : 76, 0.9, 40);
     if (perfect) {
       this.perfectT = 0.45;
       this.zoomPulse = this.q.shake ? 1 : 0;
       this.flashT = this.q.shake ? 0.1 : 0;
-      audio.play("perfect", Math.min(2, 1 + (this.combo - 1) * 0.06), 1, pan);
       this.particles.burst(sx, sy, 26, 7, 820, { life: 0.8, up: 380 });
       this.particles.burst(sx, sy, 14, 2, 520, { life: 0.6, size: 1.2 });
-      this.juice.ring(this.sprites.glowGold, sx, y + this.cam, 2.2, 0.5, 0.75);
-      this.juice.ring(this.sprites.ring, sx, y + this.cam, 2.4, 0.45, 0.6);
-      this.popups.show(this.combo > 1 ? `${this.labels.perfect} x${this.combo}` : this.labels.perfect, W / 2, SLOT_PERFECT, P.gold, 100, 0.9, 40);
-      if (this.combo % c.comboStep === 0 && this.mult > 1) {
-        this.multPop = 1;
-        this.popups.show(`${this.labels.combo} x${this.mult}`, W / 2, SLOT_MULT, P.bright, 96, 1.1, 30);
-        audio.play("combo", 1 + this.mult * 0.05);
+      this.juice.ring(this.sprites.glowGold, sx, floorY, 2.2, 0.5, 0.75);
+      this.juice.ring(this.sprites.ring, sx, floorY, 2.4, 0.45, 0.6);
+      if (cur.golden) {
+        this.particles.burst(sx, sy, 30, 1, 900, { life: 1, size: 1.4, up: 300 });
+        this.popups.show(`+${c.goldenBonus * this.mult}`, sx, sy - 80, P.gold, 90, 1.1, 120);
+        audio.play("golden", 0.9, 1, pan);
       }
     } else {
-      this.particles.burst(sx, sy + this.crateH - 6, 8, 5, 300, { life: 0.4, gravity: 600 });
+      this.particles.burst(sx, sy + this.crateH * this.zoom - 6, 8, 5, 300, { life: 0.4, gravity: 600 });
+    }
+    if (this.mult > prevMult) {
+      this.multPop = 1;
+      this.popups.show(`${this.labels.combo} x${this.mult}`, W / 2, SLOT_MULT, P.bright, 96, 1.1, 30);
+      audio.play("combo", 1 + this.mult * 0.05);
+    } else if (this.mult < prevMult) {
+      this.popups.show(`x${this.mult}`, 550, 230, P.silver, 56, 0.8, 30);
     }
     // Instability is presentation only: narrow or leaning towers sway and warn once.
     const base = this.stack[0];
@@ -422,19 +596,40 @@ export class CrateStacker implements Game<CrateResult> {
     }
     this.unstable = unstable;
     // Beside the stack, not on it: the next crate hovers right over the placed one.
-    const px = placed.x + placed.w + DX + 90 < W - 60 ? placed.x + placed.w + DX + 90 : placed.x - 90;
-    this.popups.show(`+${pts}`, px, Math.max(320, sy + 20), P.cream, 58);
+    const px = sx + (placed.w * this.zoom) / 2 + 120 < W - 60 ? sx + (placed.w * this.zoom) / 2 + 90 : sx - (placed.w * this.zoom) / 2 - 90;
+    this.popups.show(`+${pts}`, px, Math.max(380, sy + 20), P.cream, 58);
 
-    if (placed.w < c.minWidth) return this.gameOver(this.labels.gameOver);
-    if (this.level % 10 === 1 && this.level > 1) {
-      this.banner = String(this.level - 1);
-      this.bannerT = 1.1;
+    if (placed.w < c.minWidth) {
+      this.wobV += 18;
+      return this.gameOver(this.labels.gameOver);
+    }
+    const st = crateStageAt(this.stats.height);
+    if (st !== this.stageIdx) {
+      this.stageIdx = st;
+      this.banner = this.labels.stage(st + 1);
+      this.bannerSub = this.labels.stageName(st + 1);
+      this.bannerT = this.bannerDur = 1.5;
+      audio.play("stage");
+    } else if (this.stats.height % 10 === 0) {
+      this.banner = String(this.stats.height);
+      this.bannerSub = "";
+      this.bannerT = this.bannerDur = 1.1;
       audio.play("milestone");
     }
     this.spawnMover();
   }
 
-  private spawnDebris(x: number, y: number, w: number, dir: number, u0 = 0, u1 = 1) {
+  private meterShow(off: number, grade: Grade) {
+    this.meter = { off: clamp(off, -0.5, 0.5), grade, t: 1.6, tol: this.tolerance / Math.max(1, this.mover.w) };
+  }
+
+  /** World point to HUD (screen) coordinates under the current camera. */
+  private toScreen(x: number, y: number): [number, number] {
+    const z = this.zoom;
+    return [(x + W / 2 / z - W / 2) * z, (y + this.cam) * z];
+  }
+
+  private spawnDebris(x: number, y: number, w: number, dir: number, u0 = 0, u1 = 1, golden = false, fatal = false) {
     const d = this.debris.find((d) => !d.on) ?? this.debris[0];
     d.on = true;
     d.x = x;
@@ -447,12 +642,15 @@ export class CrateStacker implements Game<CrateResult> {
     d.rot = 0;
     d.vrot = dir * rand(2, 4);
     d.shade = this.level % 2;
+    d.golden = golden;
+    d.fatal = fatal;
   }
 
   private gameOver(text: string) {
     this.outro = OUTRO_S;
     this.banner = text;
-    this.bannerT = OUTRO_S;
+    this.bannerSub = "";
+    this.bannerT = this.bannerDur = OUTRO_S;
     this.shakeT = this.q.shake ? 0.4 : 0;
     this.combo = 0;
     audio.play("end");
@@ -464,34 +662,42 @@ export class CrateStacker implements Game<CrateResult> {
     const baseS = view.s;
     const shake = this.shakeT > 0 ? this.shakeT * 30 : 0;
 
+    // Layers 1-3: hall (baked), parallax racking, stage lights.
     resetView(ctx, true);
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = "source-over";
-    ctx.drawImage(this.bg.canvas, 0, 0);
-    // Parallax far layer at 30% camera speed, tiled vertically.
-    const off = (this.cam * 0.3) % H;
-    // Parallax layer only when the device has headroom: two extra full-screen blits.
+    ctx.drawImage((this.q.extras ? this.bg : (this.bgLow ?? this.bg)).canvas, 0, 0);
+    const farOff = (this.cam * 0.25) % H;
+    ctx.drawImage(this.far.canvas, 0, farOff - H);
+    ctx.drawImage(this.far.canvas, 0, farOff);
     if (this.q.extras) {
-      ctx.drawImage(this.far.canvas, 0, off - H);
-      ctx.drawImage(this.far.canvas, 0, off);
+      const midOff = (this.cam * 0.55) % H;
+      ctx.drawImage(this.mid.canvas, 0, midOff - H);
+      ctx.drawImage(this.mid.canvas, 0, midOff);
+      const multFrac = (this.mult - 1) / Math.max(1, this.cfg.maxMultiplier - 1);
+      const energy = Math.max(multFrac, this.stageIdx / (CRATE_STAGES.length - 1));
+      drawCones(ctx, this.sprites.lights, this.elapsed, energy, this.stageIdx >= CRATE_STAGES.length - 1 ? "red" : "gold", this.perfectT > 0 ? 1 : this.stageIdx >= CRATE_STAGES.length - 1 ? 0.8 : 0, RIG_Y);
+      resetView(ctx, true);
+      ctx.drawImage(this.sprites.lights.rig.canvas, 0, RIG_Y);
     }
 
     // World camera follows the stack; in the outro it eases out to frame the whole tower
     // (ground pinned near the screen bottom, horizontal centre fixed).
-    let z = 1;
+    let z = this.zoom;
     let oy = this.cam;
     if (this.outro > 0) {
-      const blend = easeOutCubic(clamp((OUTRO_S - this.outro) / 1.1, 0, 1));
+      const blend = easeOutCubic(clamp((OUTRO_S - this.outro - 0.5) / 1.1, 0, 1));
       const span = GROUND_Y + 160 - (this.yOf(this.level) - this.crateTop - 60);
-      z = lerp(1, clamp(1450 / span, 0.16, 1), blend);
-      oy = lerp(this.cam, 1780 / z - (GROUND_Y + 160), blend);
+      const zt = clamp(1450 / span, 0.16, 1);
+      oy = lerp(this.cam, 1780 / zt - (GROUND_Y + 160), blend);
+      z = lerp(this.zoom, zt, blend);
     }
     z *= 1 + 0.025 * Math.sin(this.zoomPulse * Math.PI);
     view.s = baseS * z;
     view.ox = W / 2 / z - W / 2 + (shake ? rand(-shake, shake) : 0);
     view.oy = oy + this.kick * 0.04 + (shake ? rand(-shake, shake) : 0);
 
-    this.renderHeightMarks(ctx);
+    this.renderHeightMarks(ctx, z);
     this.renderGround(ctx);
 
     const n = this.stack.length;
@@ -521,22 +727,12 @@ export class CrateStacker implements Game<CrateResult> {
       }
     }
 
-    if (this.outro <= 0) {
-      const y = this.yOf(this.level) - HOVER + (this.dropping ? this.dropY : 0);
-      // Drop guide: faint column showing where the crate will land, and its shadow on the stack.
-      resetView(ctx);
-      ctx.fillStyle = "rgba(255,255,255,0.05)";
-      ctx.fillRect(this.mover.x, y, this.mover.w, this.yOf(this.level) - y);
-      ctx.globalAlpha = this.dropping ? 0.5 + 0.5 * (this.dropY / HOVER) : 0.45;
-      ctx.drawImage(this.ao.canvas, this.mover.x, this.yOf(this.level), this.mover.w, 26);
-      ctx.globalAlpha = 1;
-      this.drawCrate(ctx, this.mover.x, y, this.mover.w, true, this.level % 2, 0, this.mover);
-    }
+    if (this.outro <= 0) this.renderMover(ctx);
 
     for (const d of this.debris) {
       if (!d.on) continue;
       place(ctx, d.x + d.w / 2, d.y + this.crateH / 2, 1, d.rot);
-      if (this.img) this.drawPhoto(ctx, -d.w / 2, this.crateH / 2, d.w, d.u0, d.u1, 0);
+      if (this.img) this.drawPhoto(ctx, -d.w / 2, this.crateH / 2, d.w, d.u0, d.u1, 0, d.golden);
       else this.drawCrateLocal(ctx, -d.w / 2, -CRATE_H / 2, d.w, d.shade);
     }
 
@@ -552,9 +748,54 @@ export class CrateStacker implements Game<CrateResult> {
     this.renderHud(ctx);
   }
 
+  private renderMover(ctx: CanvasRenderingContext2D) {
+    const m = this.mover;
+    const y = this.yOf(this.level) - HOVER + (this.dropping ? this.dropY : 0);
+    // Drop guide: faint column showing where the crate will land, and its shadow on the stack.
+    resetView(ctx);
+    ctx.fillStyle = m.golden ? "rgba(255,201,74,0.08)" : "rgba(255,255,255,0.05)";
+    ctx.fillRect(m.x, y, m.w, this.yOf(this.level) - y);
+    ctx.globalAlpha = this.dropping ? 0.5 + 0.5 * (this.dropY / HOVER) : 0.45;
+    ctx.drawImage(this.ao.canvas, m.x, this.yOf(this.level), m.w, 26);
+    ctx.globalAlpha = 1;
+    if (this.stage.motion === "crane" && !this.dropping) {
+      // Rope from the hook overhead down to the crate's lifting point.
+      const topY = y - this.crateH - this.crateTop - 520;
+      const hx = MIN_X + (MAX_X - m.w - MIN_X) / 2 + m.w / 2;
+      resetView(ctx);
+      ctx.strokeStyle = "rgba(200,210,205,0.75)";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(hx, topY);
+      ctx.lineTo(m.x + m.w / 2, y - this.crateH - this.crateTop - 4);
+      ctx.stroke();
+      ctx.fillStyle = "#c9cfcb";
+      ctx.fillRect(m.x + m.w / 2 - 10, y - this.crateH - this.crateTop - 18, 20, 16);
+    }
+    if (m.golden && this.q.extras) {
+      const gg = this.sprites.glowGold;
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = 0.45 + 0.2 * Math.sin(this.elapsed * 8);
+      place(ctx, m.x + m.w / 2, y - this.crateH / 2, (m.w / gg.w) * 1.6);
+      ctx.drawImage(gg.canvas, -gg.cx, -gg.cy);
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = "source-over";
+    }
+    if (this.swing) {
+      // Swinging crate tilts about its lifting point (render-only; lands square).
+      const px = m.x + m.w / 2;
+      const py = y - this.crateH - this.crateTop;
+      place(ctx, px, py, 1, this.swing);
+      if (this.img) this.drawPhoto(ctx, -m.w / 2, this.crateH + this.crateTop, m.w, m.u0, m.u1, 0, m.golden);
+      else this.drawCrateLocal(ctx, -m.w / 2, this.crateTop, m.w, 0);
+      return;
+    }
+    this.drawCrate(ctx, m.x, y, m.w, true, this.level % 2, 0, m);
+  }
+
   /** Photo crate whose front face bottom is at y; the open top sits above the face. */
-  private drawPhoto(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, u0: number, u1: number, squash: number) {
-    const img = this.img!;
+  private drawPhoto(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, u0: number, u1: number, squash: number, golden = false) {
+    const img = golden && this.goldImg ? this.goldImg : this.img!;
     const iw = img.width;
     const fullH = (this.crateH + this.crateTop) * (1 - squash);
     ctx.drawImage(img, u0 * iw, 0, Math.max(1, (u1 - u0) * iw), img.height, x, y - fullH, w, fullH);
@@ -564,7 +805,7 @@ export class CrateStacker implements Game<CrateResult> {
   private drawCrate(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, top: boolean, shade: number, squash: number, c?: Crate) {
     if (this.img) {
       resetView(ctx);
-      this.drawPhoto(ctx, x, y, w, c?.u0 ?? 0, c?.u1 ?? 1, squash);
+      this.drawPhoto(ctx, x, y, w, c?.u0 ?? 0, c?.u1 ?? 1, squash, c?.golden);
       return;
     }
     const h = CRATE_H * (1 - squash);
@@ -588,34 +829,12 @@ export class CrateStacker implements Game<CrateResult> {
       ctx.lineTo(x + w, fy);
       ctx.closePath();
       ctx.fill();
-      // Bottle caps peeking out of the top crate: reads instantly as a beer crate.
-      // Skipped on slivers (a negative ellipse radius throws).
-      const cols = w >= 40 ? Math.max(1, Math.floor((w - 10) / 44)) : 0;
-      const gap = (w - 10) / cols;
-      for (let r = 0; r < 2; r++) {
-        const ry = fy - DY * (0.3 + r * 0.42);
-        const rx = x + 5 + DX * (0.3 + r * 0.42);
-        for (let c = 0; c < cols; c++) {
-          const cx = rx + gap * (c + 0.5);
-          ctx.fillStyle = "#0b3d17";
-          ctx.beginPath();
-          ctx.ellipse(cx, ry + 2, gap * 0.36, 7, 0, 0, Math.PI * 2);
-          ctx.fill();
-          // Heineken caps: silver crimp ring, green crown, red star dot.
-          ctx.fillStyle = r ? "#b9c1bc" : "#dfe6e1";
-          ctx.beginPath();
-          ctx.ellipse(cx, ry, gap * 0.3, 6, 0, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.fillStyle = "#13873a";
-          ctx.beginPath();
-          ctx.ellipse(cx, ry - 0.5, gap * 0.22, 4.2, 0, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.fillStyle = P.starRed;
-          ctx.fillRect(cx - 2, ry - 2, 4, 3);
-        }
-      }
     }
     this.drawFront(ctx, x, fy, w, h, shade);
+    if (c?.golden) {
+      ctx.fillStyle = "rgba(255,201,74,0.45)";
+      ctx.fillRect(x, fy, w, h);
+    }
   }
 
   private drawFront(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, shade: number) {
@@ -627,48 +846,7 @@ export class CrateStacker implements Game<CrateResult> {
     ctx.fillStyle = "rgba(0,0,0,0.3)";
     ctx.fillRect(x, y, 6, h);
     ctx.fillRect(x + w - 6, y, 6, h);
-    // Hand-hold slots near the edges, emblem in the middle when there is room.
-    if (w > 150) {
-      ctx.fillStyle = "#05230d";
-      ctx.beginPath();
-      ctx.roundRect(x + 22, y + 12, 58, 14, 7);
-      ctx.roundRect(x + w - 80, y + 12, 58, 14, 7);
-      ctx.fill();
-    }
-    this.drawLabel(ctx, x, y, w, h);
-  }
-
-  /** Recessed label panel with the real white wordmark and red star (brand assets). */
-  private drawLabel(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
-    const wm = this.sprites.wordmark;
-    if (!wm) {
-      if (w > 120) ctx.drawImage(this.badge.canvas, x + w / 2 - 45, y + h / 2 - 26, 90, 60 * (h / CRATE_H));
-      return;
-    }
-    if (w < 70) return;
-    const panelW = Math.min(w - 24, 380);
-    const panelH = h * 0.5;
-    const px = x + (w - panelW) / 2;
-    const py = y + h * 0.36;
-    ctx.fillStyle = "rgba(0,40,12,0.45)";
-    ctx.beginPath();
-    ctx.roundRect(px, py, panelW, panelH, 10);
-    ctx.fill();
-    ctx.fillStyle = "rgba(255,255,255,0.10)";
-    ctx.fillRect(px + 8, py + panelH - 2, panelW - 16, 2);
-    const star = this.sprites.redStar;
-    const starH = panelH * 0.86;
-    const starW = (star.w / star.h) * starH;
-    const textH = panelH * 0.62;
-    const textW = Math.min(panelW - starW - 24, (wm.w / wm.h) * textH);
-    const th = (wm.h / wm.w) * textW;
-    const total = (panelW > 160 ? starW + 8 : 0) + textW;
-    let cx = px + (panelW - total) / 2;
-    if (panelW > 160) {
-      ctx.drawImage(star.canvas, cx, py + (panelH - starH) / 2, starW, starH);
-      cx += starW + 8;
-    }
-    ctx.drawImage(wm.canvas, cx, py + (panelH - th) / 2, textW, th);
+    if (w > 120) ctx.drawImage(this.badge.canvas, x + w / 2 - 45, y + h / 2 - 26, 90, 60 * (h / CRATE_H));
   }
 
   private drawCrateLocal(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, shade: number) {
@@ -686,41 +864,39 @@ export class CrateStacker implements Game<CrateResult> {
   private renderGround(ctx: CanvasRenderingContext2D) {
     resetView(ctx);
     const y = GROUND_Y;
-    // Pallet / platform the first crate sits on
-    ctx.fillStyle = "#0d2a17";
-    ctx.beginPath();
-    ctx.moveTo(-200, y);
-    ctx.lineTo(-200 + DX, y - DY);
-    ctx.lineTo(W + 200 + DX, y - DY);
-    ctx.lineTo(W + 200, y);
-    ctx.closePath();
-    ctx.fill();
-    const g = ctx.createLinearGradient(0, y, 0, y + 400);
-    g.addColorStop(0, "#14462a");
+    // Polished warehouse floor with a soft reflection pool under the tower.
+    const g = ctx.createLinearGradient(0, y, 0, y + 500);
+    g.addColorStop(0, "#1b4a2c");
     g.addColorStop(1, "#020d06");
     ctx.fillStyle = g;
-    ctx.fillRect(-400, y, W + 800, 2000);
-    ctx.fillStyle = "rgba(160,255,160,0.35)";
-    ctx.fillRect(-400, y, W + 800, 3);
+    ctx.fillRect(-600, y, W + 1200, 2400);
+    ctx.fillStyle = "rgba(220,255,225,0.28)";
+    ctx.fillRect(-600, y, W + 1200, 3);
+    // Floor markings: a safety line framing the stacking bay.
+    ctx.fillStyle = "rgba(255,201,74,0.35)";
+    ctx.fillRect(-600, y + 70, W + 1200, 6);
     const s = this.sprites.shadow;
     const base = this.stack[0];
-    ctx.globalAlpha = 0.8;
-    ctx.drawImage(s.canvas, base.x - 40, y - 20, base.w + 120, 48);
+    ctx.globalAlpha = 0.85;
+    ctx.drawImage(s.canvas, base.x - 70, y - 22, base.w + 180, 56);
     ctx.globalAlpha = 1;
+    const p = this.pallet;
+    ctx.drawImage(p.canvas, base.x + base.w / 2 - p.w / 2, y - 6, p.w, p.h);
   }
 
-  private renderHeightMarks(ctx: CanvasRenderingContext2D) {
+  private renderHeightMarks(ctx: CanvasRenderingContext2D, z: number) {
     resetView(ctx);
     ctx.textAlign = "right";
     ctx.textBaseline = "middle";
-    ctx.font = `700 30px ${this.font}`;
-    const top = Math.max(1, this.level - 14);
-    for (let lvl = Math.ceil(top / 5) * 5; lvl <= this.level + 6; lvl += 5) {
+    ctx.font = `700 ${Math.round(30 / z)}px ${this.font}`;
+    const top = Math.max(1, this.level - 20);
+    for (let lvl = Math.ceil(top / 5) * 5; lvl <= this.level + 8; lvl += 5) {
       if (lvl <= 0) continue;
       const y = this.yOf(lvl);
-      ctx.fillStyle = "rgba(201,207,203,0.18)";
-      ctx.fillRect(W - 120, y, 90, 2);
-      ctx.fillStyle = "rgba(201,207,203,0.4)";
+      const stageEdge = CRATE_STAGES.some((s) => s.from === lvl);
+      ctx.fillStyle = stageEdge ? "rgba(255,201,74,0.45)" : "rgba(201,207,203,0.18)";
+      ctx.fillRect(W - 120, y, 90, stageEdge ? 4 : 2);
+      ctx.fillStyle = "rgba(201,207,203,0.45)";
       ctx.fillText(String(lvl), W - 30, y - 22);
     }
   }
@@ -746,7 +922,7 @@ export class CrateStacker implements Game<CrateResult> {
       place(ctx, 550, 138, 1 + 0.35 * this.multPop * this.multPop);
       ctx.drawImage(chip.canvas, -chip.w / 2, -chip.h / 2);
     }
-    // Height plate
+    // Height plate with the stage underneath.
     drawPlate(ctx, this.heightPlate, 720, 48, !this.q.extras);
     resetView(ctx, true);
     ctx.textAlign = "center";
@@ -755,36 +931,47 @@ export class CrateStacker implements Game<CrateResult> {
     ctx.fillText(this.labels.height, 880, 100);
     drawNumber(ctx, this.font, String(this.stats.height), 880, 194, 100, this.landT > 0 ? this.landT / 0.18 : 0, "center");
     resetView(ctx, true);
+    ctx.font = `800 26px ${this.font}`;
+    ctx.fillStyle = this.stageIdx >= CRATE_STAGES.length - 1 ? "#ff6b5e" : P.gold;
+    ctx.fillText(`${this.labels.stage(this.stageIdx + 1)} · ${this.labels.stageName(this.stageIdx + 1)}`, 880, 248);
+    this.renderMeter(ctx);
     // Time cap warning in the last 10 s only: no clock pressure for normal runs.
     const cap = this.cfg.maxDurationSec;
     if (cap > 0 && this.outro <= 0 && cap - this.elapsed < 10) {
+      ctx.textAlign = "center";
       ctx.fillStyle = P.starRed;
       ctx.font = `800 56px ${this.font}`;
-      ctx.fillText(String(Math.ceil(cap - this.elapsed)), W / 2, 300);
+      ctx.fillText(String(Math.ceil(cap - this.elapsed)), W / 2, 420);
     }
-    // Streak pips
+    // Perfect streak pips under the score.
     if (this.combo > 0 && this.outro <= 0) {
       const n = Math.min(this.combo, 12);
       for (let i = 0; i < n; i++) {
         ctx.fillStyle = P.gold;
-        starPath(ctx, W / 2 - (n - 1) * 22 + i * 44, 268, 15);
+        starPath(ctx, 80 + i * 40, 252, 14);
         ctx.fill();
       }
     }
     if (this.bannerT > 0) {
-      const dur = this.outro > 0 ? OUTRO_S : 1.1;
-      const intro = clamp((dur - this.bannerT) / 0.2, 0, 1);
+      const intro = clamp((this.bannerDur - this.bannerT) / 0.2, 0, 1);
       ctx.globalAlpha = Math.min(1, this.bannerT / 0.25);
       place(ctx, W / 2, this.outro > 0 ? 560 : SLOT_BANNER, lerp(0.6, 1, easeOutCubic(intro)));
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.font = `800 128px ${this.font}`;
+      ctx.font = `800 ${this.bannerSub ? 112 : 128}px ${this.font}`;
       ctx.lineWidth = 18;
       ctx.lineJoin = "round";
       ctx.strokeStyle = "rgba(3,19,10,0.85)";
       ctx.strokeText(this.banner, 0, 0);
       ctx.fillStyle = P.cream;
       ctx.fillText(this.banner, 0, 0);
+      if (this.bannerSub) {
+        ctx.font = `800 56px ${this.font}`;
+        ctx.lineWidth = 12;
+        ctx.strokeText(this.bannerSub, 0, 92);
+        ctx.fillStyle = P.gold;
+        ctx.fillText(this.bannerSub, 0, 92);
+      }
       ctx.globalAlpha = 1;
     }
     if (this.hintT > 0 && this.stats.height === 0) {
@@ -797,5 +984,37 @@ export class CrateStacker implements Game<CrateResult> {
       ctx.fillText(this.labels.tapToDrop, W / 2, 1820);
       ctx.globalAlpha = 1;
     }
+  }
+
+  /** Precision meter: where the last crate landed relative to the one below. */
+  private renderMeter(ctx: CanvasRenderingContext2D) {
+    const m = this.meter;
+    if (m.t <= 0) return;
+    resetView(ctx, true);
+    ctx.globalAlpha = Math.min(1, m.t * 2);
+    const { x, y, w } = METER;
+    const half = w / 2;
+    // Scale: ±50% of the crate width across the bar; zones from the current tolerances.
+    const zone = (frac: number) => Math.min(half, frac * 2 * half);
+    ctx.fillStyle = "rgba(3,19,10,0.7)";
+    ctx.fillRect(x - half - 6, y - 14, w + 12, 28);
+    ctx.fillStyle = "rgba(201,207,203,0.25)";
+    ctx.fillRect(x - half, y - 8, w, 16);
+    const great = zone(m.tol * CRATE.greatFactor);
+    ctx.fillStyle = "rgba(18,164,21,0.85)";
+    ctx.fillRect(x - great, y - 8, great * 2, 16);
+    const perfect = Math.max(3, zone(m.tol));
+    ctx.fillStyle = P.gold;
+    ctx.fillRect(x - perfect, y - 8, perfect * 2, 16);
+    const mx = x + m.off * 2 * half;
+    ctx.fillStyle = m.grade === "perfect" ? P.cream : m.grade === "off" ? P.starRed : P.cream;
+    ctx.beginPath();
+    ctx.moveTo(mx, y + 10);
+    ctx.lineTo(mx - 12, y + 26);
+    ctx.lineTo(mx + 12, y + 26);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillRect(mx - 2, y - 14, 4, 28);
+    ctx.globalAlpha = 1;
   }
 }

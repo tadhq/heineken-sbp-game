@@ -1,5 +1,5 @@
 import { brandImages, ensureBrandImages } from "@/game/engine/brand-assets";
-import { makeGlass } from "@/game/star-catcher";
+import { BeerGlass } from "@/game/engine/beer-glass";
 import { createSharedSprites, makeSprite, type SharedSprites, type Sprite, STAR_R } from "@/game/engine/sprites";
 import type { RuleIcon } from "@/lib/i18n";
 
@@ -17,6 +17,8 @@ export function getSprites(): SharedSprites {
     sprites = createSharedSprites(img);
     builtWithImages = !!img;
     icons = null;
+    glassIcon = null;
+    stageArt = null;
   }
   return sprites;
 }
@@ -41,7 +43,22 @@ export function getIcons(): Record<RuleIcon, string> {
     ctx.fillRect(10, 50, 200, 120);
     ctx.drawImage(s.redStar.canvas, 92, 70, 36, (36 * s.redStar.h) / s.redStar.w);
   });
+  const glassIcon = makeSprite(200, 200, (ctx) => {
+    const g = filledGlass(0.6);
+    const h = 190;
+    const w = (g.width / g.height) * h;
+    ctx.drawImage(g, 100 - w / 2, 5, w, h);
+  });
+  const goldCrate = makeSprite(220, 180, (ctx) => {
+    if (s.crateImage) ctx.drawImage(s.crateImage, 10, 18, 200, (200 * s.crateImage.naturalHeight) / s.crateImage.naturalWidth);
+    else ctx.drawImage(crate.canvas, 0, 0);
+    ctx.globalCompositeOperation = "source-atop";
+    ctx.fillStyle = "rgba(255,190,50,0.55)";
+    ctx.fillRect(0, 0, 220, 180);
+  });
   icons = {
+    glass: url(glassIcon.canvas),
+    goldCrate: url(goldCrate.canvas),
     redStar: crop(s.redStar, STAR_R * 2.6),
     goldStar: crop(s.goldStar, Math.max(s.goldStar.w, s.goldStar.h)), // include the whole glow: no hard edge
     sun: crop(s.sun, STAR_R * 3.4),
@@ -51,11 +68,31 @@ export function getIcons(): Record<RuleIcon, string> {
   return icons;
 }
 
+/** The game's glass with beer at `level` (0-1), as one canvas. */
+function filledGlass(level: number): HTMLCanvasElement {
+  const art = getSprites().glass;
+  const beer = new BeerGlass(art);
+  beer.level = beer.shown = level;
+  beer.draw();
+  return makeSprite(art.sprite.w, art.sprite.h, (ctx) => {
+    ctx.drawImage(beer.canvas, 0, 0);
+    ctx.drawImage(art.sprite.canvas, 0, 0);
+  }).canvas;
+}
+
 let glassIcon: string | null = null;
-/** The same drawn glass the game uses, for the menu card. */
+/** The game's own glass, half full, for the menu card. */
 export function getGlassIcon(): string {
-  glassIcon ??= makeGlass().canvas.toDataURL("image/png");
+  glassIcon ??= filledGlass(0.62).toDataURL("image/png");
   return glassIcon;
+}
+
+let stageArt: { rig: string; cone: string } | null = null;
+/** Stage rig and one light cone as images for the menus (same art as in the games). */
+export function getStageArt() {
+  const s = getSprites();
+  stageArt ??= { rig: s.lights.rig.canvas.toDataURL("image/png"), cone: s.lights.cones.stage.canvas.toDataURL("image/png") };
+  return stageArt;
 }
 
 /** Canvas needs the real (hashed) family name next/font generated. */

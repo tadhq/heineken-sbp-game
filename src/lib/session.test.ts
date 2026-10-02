@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CONFIG } from "./config";
 import { initialsAllowed } from "./initials";
-import { checkPlausibility, type SessionPayload } from "./session";
+import { checkPlausibility, sessionPayloadSchema, type SessionPayload } from "./session";
 
 const t0 = Date.parse("2026-10-01T12:00:00Z");
 const star = (over: Partial<Extract<SessionPayload, { game: "star" }>> = {}): SessionPayload => ({
@@ -15,7 +15,7 @@ const star = (over: Partial<Extract<SessionPayload, { game: "star" }>> = {}): Se
   isReplay: false,
   configVersion: 1,
   initials: null,
-  stats: { caught: 40, golden: 2, hazards: 1, dodges: 3, missed: 6, chills: 1, bestCombo: 18 },
+  stats: { caught: 40, golden: 2, hazards: 1, dodges: 3, missed: 6, chills: 1, bestCombo: 18, perfects: 9, served: 2 },
   prize: null,
   ...over,
 });
@@ -25,7 +25,7 @@ const crate = (score: number, height: number, durationMs = 40_000): SessionPaylo
   durationMs,
   endedAt: new Date(t0 + durationMs).toISOString(),
   score,
-  stats: { height, perfects: 3, bestCombo: 2 },
+  stats: { height, perfects: 3, bestCombo: 2, greats: 4, goldens: 1 },
 });
 
 describe("checkPlausibility", () => {
@@ -36,9 +36,20 @@ describe("checkPlausibility", () => {
     expect(checkPlausibility(DEFAULT_CONFIG, star({ score: 999_999 })).join()).toMatch(/above bound/);
   });
   it("flags impossible catch counts and over-long rounds", () => {
-    const r = checkPlausibility(DEFAULT_CONFIG, star({ stats: { caught: 5000, golden: 0, hazards: 0, dodges: 0, missed: 0, chills: 0, bestCombo: 5 } }));
+    const r = checkPlausibility(DEFAULT_CONFIG, star({ stats: { caught: 5000, golden: 0, hazards: 0, dodges: 0, missed: 0, chills: 0, bestCombo: 5, perfects: 0, served: 0 } }));
     expect(r.join()).toMatch(/more objects than can spawn/);
     expect(checkPlausibility(DEFAULT_CONFIG, star({ durationMs: 200_000, endedAt: new Date(t0 + 200_000).toISOString() })).join()).toMatch(/longer than round/);
+  });
+  it("flags more full glasses or perfects than catches", () => {
+    const st = { caught: 3, golden: 0, hazards: 0, dodges: 0, missed: 0, chills: 0, bestCombo: 3 };
+    expect(checkPlausibility(DEFAULT_CONFIG, star({ score: 10, stats: { ...st, perfects: 0, served: 4 } })).join()).toMatch(/served/);
+    expect(checkPlausibility(DEFAULT_CONFIG, star({ score: 10, stats: { ...st, perfects: 5, served: 0 } })).join()).toMatch(/perfects exceed/);
+  });
+  it("accepts payloads from kiosks that predate the glass and grade stats", () => {
+    const old = { ...star(), stats: { caught: 40, golden: 2, hazards: 1, dodges: 3, missed: 6, chills: 1, bestCombo: 18 } };
+    const parsed = sessionPayloadSchema.parse(old);
+    expect(parsed.stats).toMatchObject({ perfects: 0, served: 0 });
+    expect(checkPlausibility(DEFAULT_CONFIG, parsed)).toEqual([]);
   });
   it("flags a prize the rules do not give for that score", () => {
     const p = star({ score: 100, prize: { awardId: "0b8e3f8a-2c4d-4e6f-8a0b-1c2d3e4f5a6b", prizeId: "star-t3", prizeName: "x" } });

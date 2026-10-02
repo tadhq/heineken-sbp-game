@@ -63,7 +63,7 @@ export function drawPlate(ctx: CanvasRenderingContext2D, p: Sprite, x: number, y
 }
 
 /** Glowing pill for the multiplier ("x3"), baked per level so drawing it is one blit. */
-export function makeChip(text: string, font: string, color = P.bright): Sprite {
+export function makeChip(text: string, font: string, color: string = P.bright): Sprite {
   const w = 170;
   const h = 96;
   const pad = 26;

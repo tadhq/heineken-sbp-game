@@ -12,6 +12,12 @@ import type { appConfigSchema, prizeSchema } from "./config-schema";
 export const GAME_IDS = ["star", "crate"] as const;
 export type GameId = (typeof GAME_IDS)[number];
 
+/**
+ * Star Catcher bonus window: serving a full glass gives x2, serving another inside the
+ * window steps it up, capped here. Shared with the server's plausibility bound.
+ */
+export const STAR_MAX_BONUS_MULT = 3;
+
 export type Prize = z.infer<typeof prizeSchema>;
 
 export type AppConfig = z.infer<typeof appConfigSchema>;
@@ -29,8 +35,8 @@ export type VersionedConfig = { version: number; config: AppConfig };
 export const DEFAULT_CONFIG: AppConfig = {
   star: {
     durationSec: 45,
-    starPoints: 10,
-    goldenPoints: 50,
+    starPoints: 7,
+    goldenPoints: 40,
     hazardPenalty: 30,
     dodgeBonus: 5,
     startSpeed: 420,
@@ -42,8 +48,15 @@ export const DEFAULT_CONFIG: AppConfig = {
     hazardChanceEnd: 0.3,
     chillChance: 0.025,
     chillDurationSec: 3.5,
-    comboStep: 5,
-    maxMultiplier: 5,
+    comboStep: 6,
+    maxMultiplier: 4,
+    perfectBonus: 7,
+    fillPerStar: 0.05,
+    fillPerGolden: 0.25,
+    fillHeatLoss: 0.3,
+    fillMissLoss: 0.04,
+    serveBonus: 30,
+    bonusSec: 7,
   },
   crate: {
     maxDurationSec: 150,
@@ -61,6 +74,8 @@ export const DEFAULT_CONFIG: AppConfig = {
     accuracyBonus: 10,
     comboStep: 3,
     maxMultiplier: 5,
+    goldenChance: 0.12,
+    goldenBonus: 60,
   },
   kiosk: {
     language: "nl",
