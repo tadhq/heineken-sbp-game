@@ -85,11 +85,13 @@ test("Crate Stacker offline: plays, keeps the result, syncs exactly once when ba
 });
 
 test("leaderboard initials: entered on the kiosk, shown highlighted on the board", async ({ page }) => {
+  // Empty today's board so any score qualifies (earlier runs leave high scores behind).
+  const admin = await adminContext("10.4.0.4");
+  expect((await admin.post("/api/admin/leaderboard", { data: { game: "crate", scope: "daily" } })).status()).toBe(200);
   await page.goto("/?bot");
   await page.locator('[data-screen="attract"]').click({ position: { x: 270, y: 700 } });
   await playOnce(page, "Crate Stacker", 60_000);
-  const prompt = page.getByText("You made the top! Your initials?");
-  test.skip(!(await prompt.isVisible({ timeout: 3000 }).catch(() => false)), "score did not reach today's top list");
+  await expect(page.getByText("You made the top! Your initials?")).toBeVisible();
   for (const k of ["Q", "A", "Z"]) await page.getByRole("button", { name: k, exact: true }).click();
   await page.getByRole("button", { name: "Save" }).click();
   await waitScreen(page, "board");
