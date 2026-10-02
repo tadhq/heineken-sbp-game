@@ -90,7 +90,7 @@ export function ProductHero({ lite = false }: { lite?: boolean }) {
         </div>
       </div>
       <div
-        className="absolute left-[270px] top-[724px] h-[60px] w-[540px] rounded-[50%]"
+        className="absolute left-[250px] top-[722px] h-[60px] w-[580px] rounded-[50%]"
         style={{ background: "radial-gradient(closest-side, rgba(0,25,8,0.55), rgba(0,25,8,0))" }}
         aria-hidden
       />
@@ -99,7 +99,7 @@ export function ProductHero({ lite = false }: { lite?: boolean }) {
         src="/assets/brand/crate.webp"
         alt="Heineken krat"
         draggable={false}
-        className="absolute left-[340px] top-[457px] w-[400px] max-w-none"
+        className="absolute left-[398px] top-[457px] w-[400px] max-w-none"
         style={{ filter: "drop-shadow(0 18px 22px rgba(0,25,8,0.5))" }}
       />
       {/* eslint-disable-next-line @next/next/no-img-element -- official bottle packshot */}
@@ -107,7 +107,7 @@ export function ProductHero({ lite = false }: { lite?: boolean }) {
         src="/assets/brand/bottle.webp"
         alt="Heineken Original"
         draggable={false}
-        className="absolute left-[250px] top-[432px] h-[330px] w-auto max-w-none"
+        className="absolute left-[200px] top-[427px] h-[330px] w-auto max-w-none"
         style={{ filter: "drop-shadow(0 18px 22px rgba(0,25,8,0.5))" }}
       />
     </div>
