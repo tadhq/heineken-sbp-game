@@ -1,5 +1,6 @@
 import "server-only";
-import { type AppConfig, appConfigSchema, DEFAULT_CONFIG, type VersionedConfig } from "@/lib/config";
+import { type AppConfig, DEFAULT_CONFIG, type VersionedConfig } from "@/lib/config";
+import { appConfigSchema } from "@/lib/config-schema";
 import { db } from "./db";
 
 /** Latest saved config. Falls back to built-in defaults (version 0) on an empty DB. */

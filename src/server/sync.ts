@@ -1,7 +1,8 @@
 import "server-only";
 import { z } from "zod";
 import type { AppConfig } from "@/lib/config";
-import { checkPlausibility, clientErrorSchema, initialsAllowed, type SessionPayload, sessionPayloadSchema } from "@/lib/session";
+import { initialsAllowed } from "@/lib/initials";
+import { checkPlausibility, clientErrorSchema, type SessionPayload, sessionPayloadSchema } from "@/lib/session";
 import { Prisma } from "../../generated/prisma/client";
 import { getConfigVersion } from "./config-store";
 import { db } from "./db";

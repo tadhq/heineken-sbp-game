@@ -1,4 +1,4 @@
-import { appConfigSchema, DEFAULT_CONFIG, type GameId, type VersionedConfig } from "@/lib/config";
+import { DEFAULT_CONFIG, type GameId, normalizeConfig, type VersionedConfig } from "@/lib/config";
 import { startOfDay } from "@/lib/time";
 import { store, uuid } from "./store";
 
@@ -28,18 +28,19 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<{ status: 
 /** Cached config immediately; a valid server copy replaces it when reachable. */
 export async function loadCachedConfig(): Promise<VersionedConfig> {
   const cached = await store.get<VersionedConfig>(CONFIG_KEY);
-  const parsed = cached ? appConfigSchema.safeParse(cached.config) : null;
+  const config = cached ? normalizeConfig(cached.config) : null;
   // Corrupted cache: fall back to built-in defaults rather than a blank kiosk.
-  return cached && parsed?.success ? { version: cached.version, config: parsed.data } : { version: 0, config: DEFAULT_CONFIG };
+  return cached && config ? { version: cached.version, config } : { version: 0, config: DEFAULT_CONFIG };
 }
 
 export async function refreshConfig(): Promise<VersionedConfig | null> {
   try {
     const { status, data } = await fetchJson<VersionedConfig>("/api/kiosk/config");
     if (status !== 200 || !data) return null;
-    const parsed = appConfigSchema.safeParse(data.config);
-    if (!parsed.success) return null;
-    const vc = { version: data.version, config: parsed.data };
+    // The server validated this with the full schema; normalise defensively anyway.
+    const config = normalizeConfig(data.config);
+    if (!config || !Number.isInteger(data.version)) return null;
+    const vc = { version: data.version, config };
     await store.set(CONFIG_KEY, vc);
     return vc;
   } catch {

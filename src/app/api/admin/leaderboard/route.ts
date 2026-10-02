@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { gameIdSchema } from "@/lib/config";
+import { gameIdSchema } from "@/lib/config-schema";
 import { getCurrentConfig } from "@/server/config-store";
 import { getBoard, resetBoard } from "@/server/leaderboard";
 import { adminRoute, json } from "@/server/route";

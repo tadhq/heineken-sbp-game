@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { type AppConfig, appConfigSchema, DEFAULT_CONFIG, resolvePrize } from "./config";
+import { type AppConfig, DEFAULT_CONFIG, normalizeConfig, resolvePrize } from "./config";
+import { appConfigSchema } from "./config-schema";
 
 const cfg = (patch: Partial<AppConfig> = {}): AppConfig => structuredClone({ ...DEFAULT_CONFIG, ...patch });
 
@@ -63,5 +64,26 @@ describe("appConfigSchema", () => {
     delete old.kiosk.ageGate;
     const parsed = appConfigSchema.parse(old);
     expect(parsed.kiosk.ageGate.enabled).toBe(false);
+  });
+});
+
+describe("normalizeConfig (client cache guard)", () => {
+  it("round-trips a valid config", () => {
+    expect(normalizeConfig(DEFAULT_CONFIG)).toEqual(DEFAULT_CONFIG);
+  });
+  it("rejects non-config values", () => {
+    expect(normalizeConfig(null)).toBeNull();
+    expect(normalizeConfig("x")).toBeNull();
+    expect(normalizeConfig({ star: {} })).toBeNull();
+  });
+  it("repairs wrong types and fills fields added after the cache was written", () => {
+    const old = structuredClone(DEFAULT_CONFIG) as unknown as { star: Record<string, unknown>; kiosk: Record<string, unknown>; prizes: unknown[] };
+    old.star.durationSec = "45";
+    delete old.kiosk.ageGate;
+    old.prizes.push({ junk: true });
+    const n = normalizeConfig(old)!;
+    expect(n.star.durationSec).toBe(DEFAULT_CONFIG.star.durationSec);
+    expect(n.kiosk.ageGate).toEqual(DEFAULT_CONFIG.kiosk.ageGate);
+    expect(n.prizes).toHaveLength(DEFAULT_CONFIG.prizes.length);
   });
 });

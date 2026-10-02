@@ -1,4 +1,4 @@
-import { createSharedSprites, makeSprite, type SharedSprites, starPath } from "@/game/engine/sprites";
+import { createSharedSprites, makeSprite, type SharedSprites, type Sprite, STAR_R, starPath } from "@/game/engine/sprites";
 import { PALETTE as P } from "@/game/engine/palette";
 import type { RuleIcon } from "@/lib/i18n";
 
@@ -40,7 +40,16 @@ export function getIcons(): Record<RuleIcon, string> {
     ctx.fill();
   });
   const url = (c: HTMLCanvasElement) => c.toDataURL("image/png");
-  icons = { redStar: url(s.redStar.canvas), goldStar: url(s.goldStar.canvas), sun: url(s.sun.canvas), ice: url(s.ice.canvas), crate: url(crate.canvas) };
+  // Glowing sprites carry halo padding; crop to the core so every icon reads the same size.
+  const crop = (sp: Sprite, core: number) =>
+    url(makeSprite(200, 200, (ctx) => ctx.drawImage(sp.canvas, sp.cx - core / 2, sp.cy - core / 2, core, core, 0, 0, 200, 200)).canvas);
+  icons = {
+    redStar: crop(s.redStar, STAR_R * 2.3),
+    goldStar: crop(s.goldStar, STAR_R * 2.7),
+    sun: crop(s.sun, STAR_R * 3.4),
+    ice: crop(s.ice, STAR_R * 2.2),
+    crate: url(crate.canvas),
+  };
   return icons;
 }
 

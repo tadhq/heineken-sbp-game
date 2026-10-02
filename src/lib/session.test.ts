@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CONFIG } from "./config";
-import { checkPlausibility, initialsAllowed, type SessionPayload } from "./session";
+import { initialsAllowed } from "./initials";
+import { checkPlausibility, type SessionPayload } from "./session";
 
 const t0 = Date.parse("2026-10-01T12:00:00Z");
 const star = (over: Partial<Extract<SessionPayload, { game: "star" }>> = {}): SessionPayload => ({

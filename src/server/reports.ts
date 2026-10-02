@@ -1,6 +1,6 @@
 import "server-only";
 import { z } from "zod";
-import { gameIdSchema } from "@/lib/config";
+import { gameIdSchema } from "@/lib/config-schema";
 import { startOfDayKey } from "@/lib/time";
 import type { Prisma } from "../../generated/prisma/client";
 

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { appConfigSchema } from "@/lib/config";
+import { appConfigSchema } from "@/lib/config-schema";
 import { isValidTimeZone } from "@/lib/time";
 import { getCurrentConfig, saveConfig } from "@/server/config-store";
 import { adminRoute, error, json } from "@/server/route";

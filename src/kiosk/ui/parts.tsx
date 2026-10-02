@@ -90,18 +90,20 @@ export function HeroStar({ size = 520, lite = false }: { size?: number; lite?: b
   );
 }
 
+const BRAND_LOGO = process.env.NEXT_PUBLIC_BRAND_LOGO;
+
 /**
  * Brand wordmark slot. Official Heineken artwork is trademarked and must come from the
- * client (RESEARCH.md §3): drop it at public/brand/logo.svg. Until then a plain-text
- * placeholder renders; it is NOT the logo.
+ * client (RESEARCH.md §3): add it under public/brand/ and set NEXT_PUBLIC_BRAND_LOGO to
+ * its path. Until then a plain-text placeholder renders; it is NOT the logo.
  */
 export function BrandMark({ className = "" }: { className?: string }) {
   const [failed, setFailed] = useState(false);
-  if (failed)
+  if (failed || !BRAND_LOGO)
     return <div className={`font-display font-bold uppercase tracking-[0.12em] text-cream ${className}`}>Heineken</div>;
   return (
     // eslint-disable-next-line @next/next/no-img-element -- optional client asset, may be absent
-    <img src="/brand/logo.svg" alt="Heineken" className={className} onError={() => setFailed(true)} draggable={false} />
+    <img src={BRAND_LOGO} alt="Heineken" className={className} onError={() => setFailed(true)} draggable={false} />
   );
 }
 

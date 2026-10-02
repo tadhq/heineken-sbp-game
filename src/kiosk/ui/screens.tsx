@@ -5,7 +5,7 @@ import { audio } from "@/game/engine/audio";
 import type { GameResult } from "@/game/types";
 import type { GameId, Prize } from "@/lib/config";
 import type { Dict, RuleIcon } from "@/lib/i18n";
-import { initialsAllowed } from "@/lib/session";
+import { initialsAllowed } from "@/lib/initials";
 import type { BoardEntry } from "../sync";
 import { Backdrop, BrandMark, HeroStar, ResponsibleFooter, StarSvg } from "./parts";
 
