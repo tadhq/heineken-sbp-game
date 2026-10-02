@@ -47,7 +47,7 @@ export function Attract({ t, lite, onStart, onAdmin }: { t: Dict; lite: boolean;
         </div>
       </div>
       <div className="absolute inset-x-0 top-[290px]">
-        <ProductHero lite={lite} />
+        <ProductHero />
       </div>
       <div className="absolute inset-x-0 top-[1135px] flex flex-col items-center px-16 text-center">
         <h1 className="font-display text-[168px] font-bold uppercase leading-[0.9] tracking-tight text-cream drop-shadow-[0_8px_24px_rgba(0,30,10,0.5)]">

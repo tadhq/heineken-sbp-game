@@ -89,17 +89,10 @@ export function Backdrop({ lite = false, tint }: { lite?: boolean; tint?: keyof 
   );
 }
 
-/**
- * Attract-screen hero: the supplied multipack, large and centred on a lit floor, with a
- * slow light burst turning behind it. Compositor-only animation.
- */
-export function ProductHero({ lite = false }: { lite?: boolean }) {
+/** Attract-screen hero: the supplied multipack, large and centred on a lit floor. Static. */
+export function ProductHero() {
   return (
     <div className="relative h-[780px] w-[1080px]">
-      <div
-        className={`absolute left-1/2 top-[400px] h-[1100px] w-[1100px] rounded-full ${lite ? "-translate-x-1/2 -translate-y-1/2" : "motion-safe-only animate-spin-slow"}`}
-        style={{ background: "repeating-conic-gradient(from 0deg, rgba(255,255,230,0.12) 0deg 7deg, rgba(255,255,230,0) 7deg 20deg)", maskImage: "radial-gradient(circle, black 20%, transparent 68%)", WebkitMaskImage: "radial-gradient(circle, black 20%, transparent 68%)" }}
-      />
       {/* Spotlight pool on the floor, then the contact shadow. */}
       <div className="absolute left-[90px] top-[600px] h-[220px] w-[900px] rounded-[50%]" style={{ background: "radial-gradient(closest-side, rgba(220,255,200,0.22), rgba(220,255,200,0))" }} aria-hidden />
       <div className="absolute left-[150px] top-[688px] h-[80px] w-[780px] rounded-[50%]" style={{ background: "radial-gradient(closest-side, rgba(0,25,8,0.65), rgba(0,25,8,0))" }} aria-hidden />
