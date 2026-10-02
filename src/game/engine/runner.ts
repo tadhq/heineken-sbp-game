@@ -26,6 +26,8 @@ export interface Game<R> {
   render(ctx: CanvasRenderingContext2D): void;
   pointer(type: "down" | "move" | "up", x: number, y: number): void;
   setQuality(q: Quality): void;
+  /** QA autopilot (`?bot`): plays like a decent human so soak tests run unattended. */
+  autopilot?(dt: number): void;
   readonly finished: boolean;
   result(): R;
 }
@@ -39,6 +41,7 @@ type RunnerOptions<R> = {
   onQualityDrop?: () => void;
   /** Dev/QA hook: average frame time samples, roughly once a second. */
   onStats?: (s: { fps: number; frameMs: number; level: QualityLevel }) => void;
+  bot?: boolean;
 };
 
 /**
@@ -139,7 +142,10 @@ export class Runner<R> {
 
     const steps = Math.ceil(dt / (1 / 60));
     const h = dt / steps;
-    for (let i = 0; i < steps; i++) this.game.update(h);
+    for (let i = 0; i < steps; i++) {
+      if (this.opts.bot) this.game.autopilot?.(h);
+      this.game.update(h);
+    }
 
     view.s = this.scale;
     this.game.render(this.ctx);

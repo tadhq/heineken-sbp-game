@@ -171,6 +171,27 @@ export class StarCatcher implements Game<StarResult> {
     if (type !== "up") this.targetX = x;
   }
 
+  autopilot() {
+    // Chase the good object that reaches the rim soonest; sidestep heat close to it.
+    let best: Obj | null = null;
+    let bestT = Infinity;
+    for (const o of this.objs) {
+      if (!o.on || o.passed || o.kind === Kind.Hazard) continue;
+      const t = (RIM_Y - o.y) / o.vy;
+      if (t > 0 && t < bestT && Math.abs(o.x - this.glassX) / 2600 < t + 0.15) {
+        bestT = t;
+        best = o;
+      }
+    }
+    let x = best ? best.x : W / 2;
+    for (const o of this.objs) {
+      if (!o.on || o.passed || o.kind !== Kind.Hazard) continue;
+      const t = (RIM_Y - o.y) / o.vy;
+      if (t > 0 && t < 0.6 && Math.abs(o.x - x) < RIM_HALF + 70) x = o.x + (x < o.x ? -1 : 1) * (RIM_HALF + 120);
+    }
+    this.targetX = x;
+  }
+
   // ---------------- simulation ----------------
 
   update(realDt: number) {

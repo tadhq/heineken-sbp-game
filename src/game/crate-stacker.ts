@@ -151,6 +151,18 @@ export class CrateStacker implements Game<CrateResult> {
     this.hintT = Math.min(this.hintT, 0.3);
   }
 
+  private botAim = 0;
+  autopilot() {
+    if (this.dropping || this.outro > 0) return;
+    const top = this.stack[this.stack.length - 1];
+    // Aim error grows with height, so runs end on their own like a human's would.
+    if (!this.botAim) this.botAim = rand(2, 10 + this.level * 2.5);
+    if (Math.abs(this.mover.x - top.x) < this.botAim && this.elapsed > 0.4) {
+      this.botAim = 0;
+      this.pointer("down");
+    }
+  }
+
   private get level() {
     return this.stack.length;
   }

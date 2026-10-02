@@ -39,11 +39,13 @@ export function GameView({ game, config, labels, quality, autoQuality, running, 
     const sprites = getSprites();
     const font = displayFontFamily();
     const instance = game === "star" ? new StarCatcher(config.star, sprites, font, labels) : new CrateStacker(config.crate, sprites, font, labels);
-    const showFps = new URLSearchParams(window.location.search).has("fps");
+    const params = new URLSearchParams(window.location.search);
+    const showFps = params.has("fps");
     const runner = new Runner<GameResult>(canvas, instance, {
       quality,
       autoQuality,
       effectsEnabled: config.kiosk.effectsEnabled,
+      bot: params.has("bot"),
       onFinish: (r) => finish(r),
       onQualityDrop: () => qualityDrop(),
       onStats: showFps

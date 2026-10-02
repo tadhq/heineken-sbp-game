@@ -26,7 +26,8 @@ export default {
       },
       keyframes: {
         "beam-sway": { "0%,100%": { transform: "rotate(-6deg)" }, "50%": { transform: "rotate(6deg)" } },
-        "star-spin": { "0%": { transform: "rotateY(0deg)" }, "100%": { transform: "rotateY(360deg)" } },
+        // Sways instead of spinning fully: the face stays visible, the extruded edge shows depth.
+        "star-spin": { "0%,100%": { transform: "rotateY(-38deg) rotateZ(-4deg)" }, "50%": { transform: "rotateY(38deg) rotateZ(4deg)" } },
         float: { "0%,100%": { transform: "translateY(0)" }, "50%": { transform: "translateY(-24px)" } },
         "pulse-soft": { "0%,100%": { opacity: "1", transform: "scale(1)" }, "50%": { opacity: "0.55", transform: "scale(0.97)" } },
         "rise-in": { "0%": { opacity: "0", transform: "translateY(60px) scale(0.96)" }, "100%": { opacity: "1", transform: "none" } },
@@ -37,7 +38,7 @@ export default {
       },
       animation: {
         "beam-sway": "beam-sway 9s ease-in-out infinite",
-        "star-spin": "star-spin 8s linear infinite",
+        "star-spin": "star-spin 6s ease-in-out infinite",
         float: "float 5s ease-in-out infinite",
         "pulse-soft": "pulse-soft 1.8s ease-in-out infinite",
         "rise-in": "rise-in 0.55s cubic-bezier(0.16,1,0.3,1) both",
