@@ -5,6 +5,12 @@ import { defineConfig } from "@playwright/test";
 // worker and real bundle sizes only exist there.
 const PORT = Number(process.env.E2E_PORT ?? 3100);
 
+// The test server writes sessions, configs and kiosks through the API: never let it point
+// at a shared database. `.env` may hold the Neon URL; override DATABASE_URL for e2e.
+const dbHost = new URL(process.env.DATABASE_URL ?? "postgresql://missing").hostname;
+if (!["localhost", "127.0.0.1"].includes(dbHost))
+  throw new Error(`E2E refuses to run against non-local DB host "${dbHost}". Set DATABASE_URL to a local database.`);
+
 export default defineConfig({
   testDir: "tests/e2e",
   timeout: 120_000,

@@ -13,12 +13,14 @@ These assets were included **at the project owner's request**, on the basis that
 | File | Source URL | Type | Licence / restrictions | Optimisation | Used for |
 |---|---|---|---|---|---|
 | `brand/heineken-logo.svg` | https://www.heineken.com/media/zmnkoinc/heineken-logo.svg | Vector logo (white wordmark, red star, "EST. 1873") | Heineken trademark, client licence required | None (13.8 KB vector) | Attract and select screens; crate wordmark (cropped at runtime) |
-| `brand/star.png` | Derived from the logo above | Official red star with white keyline, 512x488 PNG | As above | "EST."/"1873" erased, tight-cropped (script in git history, commit "Real brand assets") | All in-game stars, the golden-star variant, menu stars |
+| `brand/star.png` | Derived from the logo above | Official red star with white keyline, 1024x977 PNG | As above | Re-cut 2026-10-02 from the logo's vector paths (red star + white keyline only), rendered with rsvg-convert at 10x and downscaled: crisp at the 720 px attract size (the old 512 px cut was upscaled) | All in-game stars, the golden-star variant, menu stars, stage-rig centre plate |
+| `brand/glass.webp` | Supplied by the project owner (2026-10-02, `heineken.png`) | Heineken pint glass, transparent cut-out, 2160x3840 PNG | As above | Trimmed to the glass, 369x720 WebP q90 with alpha (81 KB). Interior measured from its alpha at runtime (`makeGlassArt`) | Star Catcher catcher with beer fill, select card, intro icon, attract hero (rendered with beer) |
+| `brand/multipack.webp` | Supplied by the project owner (2026-10-02, `Artboard_1.png`) | Four Heineken 6-packs, transparent cut-out, 1000x666 PNG | As above | Trimmed, 900x573 WebP q80 with alpha (106 KB) | Attract hero, Star Catcher back-bar shelf, Crate Stacker warehouse racking, prize card when no prize photo is set |
 | `brand/enjoy-responsibly.svg` | https://www.heineken.com/media/e0uigisg/enjoy-responsibly.svg | Responsible-consumption "e" mark | As above | None (7.4 KB) | Footer of every player screen |
 | `brand/crate.webp` | https://www.jumbo.com/dam-images/Products/25032024_1711381870774_1711381878587_8712000033040_5.png (official GS1 packshot of Heineken 24x30cl crate, EAN 8712000033040, as distributed to retailers) | Product photo, 3/4 view crate with bottle caps | Heineken trademark/copyright, client licence required | 2246x1644 PNG (5 MB) → 1000x732 WebP q88 (68 KB) | Crate Stacker crates (sliced through the photo), Star Catcher catcher, menus and hero |
 | `brand/bottle.webp` | https://www.heineken.com/media/iene2ygx/heineken-original-bottle.png | Product photo, Heineken Original bottle | As above | 1506x2258 PNG (2.0 MB) → 733x1100 WebP q84 (91 KB) | Attract hero, next to the crate |
 
-Removed after review: the filled draught glass and a photo-derived "emptied" glass (the owner preferred the drawn glass: shorter, wider, empty, red star emblem), the keg, the can and the 0.0 bottle (unused). The Star Catcher glass is drawn in code (`makeGlass` in `src/game/star-catcher.ts`).
+Removed after review: the filled draught glass, a photo-derived "emptied" glass, the keg, the can and the 0.0 bottle (unused). On 2026-10-02 the owner supplied the pint glass above and asked for a beer-fill mechanic; the drawn glass (`drawnGlass` in `src/game/engine/beer-glass.ts`) is now only the fallback when images fail to load. `crate.webp` and `bottle.webp` stay: the crate is the Crate Stacker piece; the bottle is no longer shown on the attract screen.
 
 Brand colours taken from these files: the star red `#E3000F` (logo SVG, class `st0`), and the brand-green radial `#4FAA33` → `#105D25`, sampled from https://www.heineken.com/media/wzsdqeus/gradient-wide-green.jpg.
 
@@ -43,7 +45,7 @@ Why this approach (2026-10-02): a music-generation service would need its own li
 | `music/lobby.ogg` | Menu loop: half-time, warm pads, bell motif. 104 BPM, 8 bars, Am-F-C-G | Opus 112 kbps stereo, 18.46 s | 2.3 MB for all five |
 | `music/star-base.ogg`, `star-energy.ogg` | Star Catcher: four-on-the-floor house, 126 BPM, 16 bars. Energy stem = pluck arp, hook, shaker, fills | as above, 30.48 s each | |
 | `music/crate-base.ogg`, `crate-energy.ogg` | Crate Stacker: syncopated, "crate knock" percussion, 116 BPM, 16 bars, Dm-Bb-Gm-A | as above, 33.10 s each | |
-| `sfx/*.ogg` (27) | UI (tap, select, back, open, close), countdown (tick, go), Star Catcher (catch, golden, hazard, chill, dodge, combo, miss, milestone, end), Crate Stacker (slide, drop, land, slice, perfect, unstable, fall), result (count, reveal, unlock, prize) | Opus 48-80 kbps | 428 KB total |
+| `sfx/*.ogg` (39) | UI (tap, select, back, open, close), countdown (tick, go), Star Catcher (catch, perfectCatch, golden, hazard, spill, chill, dodge, combo, miss, fill, full, serve, bonus, phase, riser, milestone, end), Crate Stacker (slide, drop, land, great, perfect, slice, goldCrate, stage, unstable, fall, topple), result (count, reveal, unlock, prize) | Opus 48-80 kbps | 664 KB total |
 
 All cues share one five-note "star motif" (E-A-G-E-D in A minor, transposed for Crate Stacker); the prize sting resolves it to A major. Loops are rendered with a 2.5 s tail folded back onto the start, so reverb and delay ring across the loop point; decoded lengths match the bar grid exactly.
 
@@ -56,6 +58,9 @@ The Kenney sound effects used before this pass were removed.
 ## Generated in code
 
 - Sun/heat hazard and ice cube sprites (`src/game/engine/sprites.ts`).
+- Beer liquid, foam band, bubbles and the foam crown (`src/game/engine/beer-glass.ts`, `sprites.ts`).
+- Stage lighting: truss, fixtures, LED strip and the light cones (`src/game/engine/stage-lights.ts`), shared by the games and the menus.
+- Warehouse racking and the pallet (`src/game/crate-stacker.ts`).
 - Crate geometry: faces, ribs, bottle caps.
 - Bokeh, light beams, the bar counter.
 - All music and sound effects (`scripts/compose-audio.mjs`).
@@ -63,4 +68,4 @@ The Kenney sound effects used before this pass were removed.
 
 ## Totals
 
-`public/assets` is about 3.0 MB: brand 224 KB, effects 68 KB, sound effects 428 KB, music 2.3 MB. All of it is precached by the service worker for offline play.
+`public/assets` is about 3.5 MB: brand 432 KB, effects 68 KB, sound effects 664 KB, music 2.3 MB. All of it is precached by the service worker for offline play.

@@ -84,13 +84,16 @@ NEXT_PUBLIC_API_BASE=https://<your-deployment>.vercel.app pnpm apk:build   # →
 ```bash
 pnpm test         # unit tests (vitest)
 pnpm build && pnpm test:e2e    # Playwright: flows, security, offline, layout (needs local DB + ADMIN_PIN)
+pnpm vitest run src/game/balance.test.ts --reporter=verbose --silent=false   # bot score bands per skill level
 pnpm test:soak    # 120 bot games in one session, heap/DOM/audio stability, 6x CPU throttle phase
 pnpm exec playwright test --grep @perf     # fps under 6x CPU throttle (PERF_AUDIO=0 to exclude audio)
 pnpm exec playwright test --grep @shots    # screenshots of every screen into test-results/shots
 node scripts/compose-audio.mjs             # re-render all music and sound effects (needs ffmpeg with libopus)
 ```
 
-The e2e suites refuse to run against a non-local database.
+The e2e suites refuse to run against a non-local database: if `.env` points at Neon, prefix the commands with `DATABASE_URL=postgresql://…@localhost:…/kiosk`.
+
+Visual QA in a browser window that is not in front: add `?qa` (with `?bot` to autoplay) and call `__qa.step(2)` in the console to advance and draw frames by hand.
 
 ## Brand assets
 

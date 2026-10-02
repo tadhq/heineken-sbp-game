@@ -85,10 +85,31 @@ export function GameSettings({ vc, onSaved }: { vc: VersionedConfig; onSaved: (v
   const { draft, setDraft, save, reset, dirty, status, busy } = useConfigDraft(vc, onSaved);
   return (
     <>
-      <Panel title="Star Catcher" actions={<SaveBar dirty={dirty} busy={busy} onReset={reset} onSave={() => save("Game settings edited")} />}>
+      <Panel
+        title="Star Catcher"
+        actions={
+          <>
+            {/* Loads the built-in balance into the form; nothing is saved until Save. */}
+            <button type="button" className={btnGhost} disabled={busy} onClick={() => setDraft((d) => ({ ...d, star: DEFAULT_CONFIG.star }))}>
+              Use defaults
+            </button>
+            <SaveBar dirty={dirty} busy={busy} onReset={reset} onSave={() => save("Game settings edited")} />
+          </>
+        }
+      >
         <NumGrid fields={STAR_FIELDS} value={draft.star} onChange={(k, v) => setDraft((d) => ({ ...d, star: { ...d.star, [k]: v } }))} />
       </Panel>
-      <Panel title="Crate Stacker" actions={<SaveBar dirty={dirty} busy={busy} onReset={reset} onSave={() => save("Game settings edited")} />}>
+      <Panel
+        title="Crate Stacker"
+        actions={
+          <>
+            <button type="button" className={btnGhost} disabled={busy} onClick={() => setDraft((d) => ({ ...d, crate: DEFAULT_CONFIG.crate }))}>
+              Use defaults
+            </button>
+            <SaveBar dirty={dirty} busy={busy} onReset={reset} onSave={() => save("Game settings edited")} />
+          </>
+        }
+      >
         <NumGrid fields={CRATE_FIELDS} value={draft.crate} onChange={(k, v) => setDraft((d) => ({ ...d, crate: { ...d.crate, [k]: v } }))} />
       </Panel>
       {status && <Notice kind={status.kind}>{status.text}</Notice>}

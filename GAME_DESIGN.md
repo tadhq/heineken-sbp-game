@@ -125,3 +125,40 @@ The design keeps to that:
 - The responsible-drinking footer stays on every menu screen.
 
 **Legal must sign off on the fill mechanic before the event.**
+
+## 7. Tuning results (bot simulation, `src/game/balance.test.ts`)
+
+Bots play through the real game code. Each run plays 50 rounds per skill level, and every result passes `checkPlausibility`. The bot skill model:
+
+- **Star Catcher:** reaction time, reach, aim error, lapses, heat awareness.
+- **Crate Stacker:** timing error in px, growing with crate speed.
+
+Medians across runs:
+
+| | Average-player bot | Decent bot | Skilled bot | Prize tiers |
+|---|---|---|---|---|
+| Star Catcher | ≈ 730 | ≈ 1150 | ≈ 1600 | 400 / 800 / 1500 |
+| Crate Stacker | ≈ 470 | ≈ 800 | ≈ 1600 | 300 / 700 / 1400 |
+
+For reference, the old Star Catcher's own autopilot scored a median of 3475 under the old rules. The old tiers were placeholders that any competent player would have cleared.
+
+**Defaults changed** to land those bands:
+
+| Game | Setting | Old | New |
+|---|---|---|---|
+| Star Catcher | `starPoints` | 10 | 7 |
+| Star Catcher | `goldenPoints` | 50 | 40 |
+| Star Catcher | `comboStep` | 5 | 6 |
+| Star Catcher | `maxMultiplier` | 5 | 4 |
+| Crate Stacker | `perfectBonus` | 25 | 15 |
+| Crate Stacker | `comboStep` | 3 | 4 |
+| Crate Stacker | `maxMultiplier` | 5 | 4 |
+
+New settings default to:
+
+- **Star Catcher:** `perfectBonus` 7; fill per star / golden / heat spill / miss 0.05 / 0.25 / 0.3 / 0.04; `serveBonus` 30; `bonusSec` 7.
+- **Crate Stacker:** `goldenChance` 0.12; `goldenBonus` 60.
+
+A config already saved in admin keeps its old values. Use "Use defaults" on each game's settings panel in admin, then Save, to get the new balance.
+
+**The bot is a model, not a person.** Validate the bands with real players at the venue, then retune in admin. The thresholds and fill rates are all live settings.

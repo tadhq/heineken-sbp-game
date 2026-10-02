@@ -27,8 +27,9 @@ Stack:
 | `src/lib/session.ts` | Session payload schema, server plausibility checks, initials blocklist. |
 | `src/lib/time.ts` | Timezone day boundaries without a date library. |
 | `src/lib/i18n.ts` | Player-facing strings, `nl` and `en`. |
-| `src/game/engine/` | Runner (rAF loop, input, quality), particles, popups, sprites, audio, palette, view transform. |
-| `src/game/star-catcher.ts`, `crate-stacker.ts` | Game logic and rendering. No React, no DOM besides the canvas. |
+| `src/game/engine/` | Runner (rAF loop, input, quality), particles, popups, sprites, audio, palette, view transform, `beer-glass.ts` (glass interior + 2.5D liquid), `stage-lights.ts` (truss rig and light cones). |
+| `src/game/star-catcher.ts`, `crate-stacker.ts` | Game logic and rendering. No React, no DOM besides the canvas. Design in GAME_DESIGN.md. |
+| `src/game/balance.ts` | Developer tuning tables: Star Catcher phases, Crate Stacker stages, glass and camera constants. `balance.test.ts` plays bot rounds against them. |
 | `src/kiosk/` | `KioskApp` state machine, screens, `store.ts` (IndexedDB), `sync.ts`, service worker registration. |
 | `src/admin/` | Admin dashboard (client) and its sections. |
 | `src/server/` | `server-only` modules: env, db, auth, throttle, config store, sync ingestion, reports, leaderboard. |
@@ -61,7 +62,7 @@ track stems ─▶ fader ─▶ duck ─▶ musicBus ─┴─▶ master ─▶ 
 ```
 
 - **One AudioContext per page**, created on the first tap and never recreated; any later tap resumes it if Android suspended it. Without Web Audio it falls back to `<audio>` elements. Every call is a no-op on failure.
-- **Effects:** 27 Opus files decoded once into AudioBuffers; a sound is one buffer source (+ gain/panner only when needed). Same-sound rate limit 30 ms, at most 12 voices (big moments always play). Catches climb a pentatonic scale by playback rate and pan with the catch position.
+- **Effects:** 39 Opus files decoded once into AudioBuffers; a sound is one buffer source (+ gain/panner only when needed). Same-sound rate limit 30 ms, at most 12 voices (big moments always play). Catches climb a pentatonic scale by playback rate and pan with the catch position.
 - **Music:** `audio.music(track)` crossfades (0.5 s in, 0.6 s out). Tracks: `lobby` on menus, the game's own track from GO, silence on attract and during the countdown. Each game track is a base and an energy stem started at the same audio-clock time (sample-locked loops); `audio.intensity(0..1)` sets the energy stem's gain from the multiplier, a golden star, tower height and the last 10 s. `audio.duck()` dips music for the prize reveal. Only the current track's and the lobby's stems stay decoded (~12 MB PCM per 30 s stereo stem).
 - **Mix and settings:** master / music / effects volumes (slider position squared = gain) plus music and effects on/off. Admin sets defaults (`kiosk.audio`) and can lock music or effects off (`musicEnabled`, `soundEnabled`). Player changes are kept in localStorage per device until the admin defaults change (`src/kiosk/audio-prefs.ts`, unit-tested).
 - **Content:** composed in code by `scripts/compose-audio.mjs` (see ASSETS.md).
@@ -86,6 +87,10 @@ GameView (React, mounts once per run)
 - **Determinism.** Crate placement is pure arithmetic (no physics engine). Sway, landing camera kick, perfect-drop zoom pulse and the "wobbly tower" tremble (narrow or leaning stack) only affect drawing, never placement or score.
 - **Feedback budget.** High quality adds star motion ghosts, golden-star light, baked shadowed HUD plates; low quality falls back to flat plates. Hazard and final-seconds warnings are a baked red edge glow (one stretched blit), not a full-screen flash; golden flash is capped at 22% opacity.
 - **QA autopilot.** `?bot` lets each game play itself through the real code path. The soak test uses it. It is harmless in production: a browser without a kiosk token cannot sync.
+- **Frame stepping.** `?qa` exposes `window.__qa.step(seconds)` (and the game instance) to advance and draw frames by hand. A backgrounded browser window pauses requestAnimationFrame, so visual QA through a remote-controlled browser steps frames instead.
+- **Balance simulation.** `src/game/balance.test.ts` runs both games headless (no-op canvas) with bots at three skill levels, asserts the score bands against the prize tiers, and runs every result through the server's `checkPlausibility`, so a gameplay change cannot silently get honest kiosks flagged.
+- **Beer glass.** The glass interior is measured from the glass image's alpha once. Per frame the liquid is one wavy polygon (spring-driven slosh against the glass's acceleration), a foam band and a few bubbles, drawn into a glass-sized offscreen canvas and clipped with one `destination-in` blit of the interior mask; the glass photo is drawn over it. Low quality refreshes it at half rate.
+- **Stage lighting.** The truss rig is one baked sprite; each light cone is a pre-blurred half-size sprite drawn as one rotated additive blit (high quality). Low quality bakes the cones into the background. The menus show the same art as images animated by CSS transform only.
 
 ## Backend
 
