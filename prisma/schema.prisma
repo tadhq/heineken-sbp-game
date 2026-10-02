@@ -1,0 +1,120 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Game {
+  star
+  crate
+}
+
+/// Immutable config snapshots. Current config = highest version. Awards reference the
+/// version they were decided under, so old rules stay auditable after an admin edit.
+model ConfigVersion {
+  version   Int      @id
+  data      Json
+  note      String?
+  createdAt DateTime @default(now())
+}
+
+/// A physical kiosk, registered ("paired") by an admin. Its token carries `tokenVersion`;
+/// bumping it revokes every token issued before.
+model Kiosk {
+  id           String        @id @default(uuid())
+  name         String
+  tokenVersion Int           @default(1)
+  createdAt    DateTime      @default(now())
+  lastSeenAt   DateTime?
+  sessions     GameSession[]
+  awards       PrizeAward[]
+}
+
+model GameSession {
+  /// Generated on the kiosk; doubles as the idempotency key for sync.
+  id               String      @id @db.Uuid
+  kioskId          String
+  kiosk            Kiosk       @relation(fields: [kioskId], references: [id])
+  game             Game
+  startedAt        DateTime
+  endedAt          DateTime
+  durationMs       Int
+  score            Int
+  completed        Boolean
+  isReplay         Boolean
+  configVersion    Int
+  stats            Json
+  initials         String?
+  /// Non-empty when the server's sanity checks disagree with the kiosk.
+  flags            String[]
+  /// Excluded from leaderboards (admin action or failed checks).
+  hiddenFromBoard  Boolean     @default(false)
+  receivedAt       DateTime    @default(now())
+  award            PrizeAward?
+
+  @@index([game, score(sort: Desc)])
+  @@index([endedAt])
+  @@index([kioskId, endedAt])
+}
+
+enum AwardStatus {
+  awarded
+  voided
+}
+
+/// One prize handed out by the kiosk. Records what the player was shown (that is what
+/// staff physically gave), plus whether the server's own derivation agreed.
+model PrizeAward {
+  /// Event id generated on the kiosk.
+  id            String      @id @db.Uuid
+  sessionId     String      @unique @db.Uuid
+  session       GameSession @relation(fields: [sessionId], references: [id])
+  kioskId       String
+  kiosk         Kiosk       @relation(fields: [kioskId], references: [id])
+  game          Game
+  score         Int
+  prizeId       String
+  prizeName     String
+  configVersion Int
+  awardedAt     DateTime
+  status        AwardStatus @default(awarded)
+  /// Server derived a different prize (or none) from the same score and rules.
+  flagged       Boolean     @default(false)
+  overridden    Boolean     @default(false)
+  notes         String?
+  receivedAt    DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([awardedAt])
+  @@index([prizeId, awardedAt])
+  @@index([game, awardedAt])
+}
+
+model ClientError {
+  id      String   @id @db.Uuid
+  kioskId String
+  at      DateTime
+  message String
+  context String?
+
+  @@index([at])
+}
+
+/// Small key/value store: admin PIN hash, leaderboard reset cutoffs.
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+/// Failed admin PIN attempts, per client key (IP) and one global row. Lives in the DB
+/// because serverless instances share no memory.
+model LoginThrottle {
+  key         String    @id
+  failures    Int       @default(0)
+  windowStart DateTime  @default(now())
+  lockedUntil DateTime?
+}
