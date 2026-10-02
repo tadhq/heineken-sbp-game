@@ -779,11 +779,17 @@ export class CrateStacker implements Game<CrateResult> {
   private renderMover(ctx: CanvasRenderingContext2D) {
     const m = this.mover;
     const y = this.yOf(this.level) - HOVER + (this.dropping ? this.dropY : 0);
-    // Landing preview: the crate's shadow on the stack (a filled guide column read as a glitch).
+    // Landing preview: the crate's shadow, only where it falls on the stack (drawn across the
+    // full width it hung in mid-air beside the tower).
     resetView(ctx);
-    ctx.globalAlpha = this.dropping ? 0.5 + 0.5 * (this.dropY / HOVER) : 0.45;
-    ctx.drawImage(this.ao.canvas, m.x, this.yOf(this.level), m.w, 26);
-    ctx.globalAlpha = 1;
+    const top = this.stack[this.stack.length - 1];
+    const l = Math.max(m.x, top.x);
+    const r = Math.min(m.x + m.w, top.x + top.w);
+    if (r > l) {
+      ctx.globalAlpha = this.dropping ? 0.5 + 0.5 * (this.dropY / HOVER) : 0.45;
+      ctx.drawImage(this.ao.canvas, l, this.yOf(this.level), r - l, 26);
+      ctx.globalAlpha = 1;
+    }
     if (this.stage.motion === "crane" && !this.dropping) {
       // Rope from the hook overhead down to the crate's lifting point.
       const topY = y - this.crateH - this.crateTop - 520;
