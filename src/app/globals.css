@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Kiosk hardening: no scrolling, rubber-banding, zoom, selection or callouts. */
+html,
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: #03130a;
+  color: #f3f6f1;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+/* Admin pages are a normal scrolling document. */
+body.admin-page {
+  overflow: auto;
+  user-select: text;
+  touch-action: auto;
+}
+
+@layer components {
+  .btn-primary {
+    @apply relative inline-flex items-center justify-center overflow-hidden rounded-full bg-star font-display font-bold uppercase text-cream transition-transform duration-150 active:scale-[0.97];
+    box-shadow: inset 0 2px 0 rgb(255 255 255 / 0.25), 0 16px 40px -12px rgb(225 37 27 / 0.6);
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-full border-2 border-silver/40 bg-ink/60 font-display font-bold uppercase text-cream transition-transform duration-150 active:scale-[0.97];
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-safe-only {
+    animation: none !important;
+  }
+}

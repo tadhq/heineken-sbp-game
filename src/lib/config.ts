@@ -97,6 +97,14 @@ export const kioskConfigSchema = z.object({
   leaderboardSize: int(3, 50),
   /** Ask players in the top N for 3 initials. */
   leaderboardInitials: z.boolean(),
+  /**
+   * Date-of-birth gate before play (Heineken Responsible Marketing Code, digital
+   * section). Off by default because staffed venues usually check age at the door;
+   * the client's Legal team decides. Nothing entered is stored.
+   */
+  ageGate: z
+    .object({ enabled: z.boolean(), minAge: int(16, 25), denyCooldownSec: int(0, 600) })
+    .default({ enabled: false, minAge: 18, denyCooldownSec: 60 }),
 });
 
 export const appConfigSchema = z
@@ -185,6 +193,7 @@ export const DEFAULT_CONFIG: AppConfig = {
     leaderboardGames: ["crate", "star"],
     leaderboardSize: 10,
     leaderboardInitials: true,
+    ageGate: { enabled: false, minAge: 18, denyCooldownSec: 60 },
   },
   prizes: [
     { id: "star-t1", name: "Prize Tier 1", description: "Placeholder prize", imageUrl: "", minScore: 400, maxScore: 799, games: ["star"], active: true },

@@ -28,6 +28,7 @@ const MOVER_SCREEN_Y = 800;
 const MIN_X = 70;
 const MAX_X = W - 70 - DX;
 const OUTRO_S = 2.4;
+const IDLE_END_S = 15;
 
 type Crate = { x: number; w: number };
 type Debris = { on: boolean; x: number; y: number; w: number; vx: number; vy: number; rot: number; vrot: number; shade: number };
@@ -67,6 +68,8 @@ export class CrateStacker implements Game<CrateResult> {
   private outro = 0;
   private done = false;
   private bonusShown = false;
+  /** Seconds since the last tap: a walked-away player ends the run instead of blocking the kiosk. */
+  private idle = 0;
 
   constructor(
     private cfg: CrateConfig,
@@ -141,6 +144,7 @@ export class CrateStacker implements Game<CrateResult> {
 
   pointer(type: "down" | "move" | "up") {
     if (type !== "down" || this.dropping || this.outro > 0) return;
+    this.idle = 0;
     this.dropping = true;
     this.dropY = 0;
     this.dropV = 900;
@@ -208,7 +212,9 @@ export class CrateStacker implements Game<CrateResult> {
     }
 
     this.elapsed += dt;
+    this.idle += dt;
     if (this.cfg.maxDurationSec > 0 && this.elapsed >= this.cfg.maxDurationSec) return this.gameOver(this.labels.timeUp);
+    if (this.idle > IDLE_END_S) return this.gameOver(this.labels.gameOver);
 
     const moverY = this.yOf(this.level) - HOVER;
     this.cam += (Math.max(0, MOVER_SCREEN_Y - moverY) - this.cam) * damp(5, dt);

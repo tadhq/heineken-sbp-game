@@ -1,7 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import type { AppConfig } from "@/lib/config";
-import { checkPlausibility, clientErrorSchema, type SessionPayload, sessionPayloadSchema } from "@/lib/session";
+import { checkPlausibility, clientErrorSchema, initialsAllowed, type SessionPayload, sessionPayloadSchema } from "@/lib/session";
 import { Prisma } from "../../generated/prisma/client";
 import { getConfigVersion } from "./config-store";
 import { db } from "./db";
@@ -37,7 +37,7 @@ async function storeSession(kioskId: string, s: SessionPayload, config: AppConfi
           isReplay: s.isReplay,
           configVersion: s.configVersion,
           stats: s.stats,
-          initials: s.initials,
+          initials: s.initials && initialsAllowed(s.initials) ? s.initials : null,
           flags,
           hiddenFromBoard: flags.length > 0 || !s.completed,
         },

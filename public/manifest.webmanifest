@@ -1,0 +1,11 @@
+{
+  "name": "Heineken Games",
+  "short_name": "Heineken",
+  "start_url": "/",
+  "scope": "/",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#03130a",
+  "theme_color": "#03130a",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

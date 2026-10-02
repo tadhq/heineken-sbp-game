@@ -88,6 +88,12 @@ export class Runner<R> {
     this.raf = requestAnimationFrame(this.tick);
   }
 
+  /** Draw one frame without advancing time (shown behind the countdown). */
+  renderStatic() {
+    view.s = this.scale;
+    this.game.render(this.ctx);
+  }
+
   stop() {
     this.running = false;
     cancelAnimationFrame(this.raf);
