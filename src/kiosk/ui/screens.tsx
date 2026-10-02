@@ -60,7 +60,6 @@ export function Attract({ t, lite, onStart, onAdmin }: { t: Dict; lite: boolean;
 
 export function Select({
   t,
-  icons,
   lite,
   best,
   onPick,
@@ -68,7 +67,6 @@ export function Select({
   leaderboard,
 }: {
   t: Dict;
-  icons: Record<RuleIcon, string>;
   lite: boolean;
   best: Partial<Record<GameId, number>>;
   onPick: (g: GameId) => void;
@@ -99,24 +97,25 @@ export function Select({
   );
   const starArt = (
     <>
-      <OfficialStar size={120} className="absolute left-[40px] top-[40px] rotate-[-12deg]" />
-      <OfficialStar size={80} className="absolute right-[60px] top-[90px] rotate-[14deg]" />
-      <OfficialStar size={60} className="absolute left-[120px] top-[220px] rotate-[6deg] opacity-80" />
-      {/* eslint-disable-next-line @next/next/no-img-element -- static brand photo */}
-      <img src="/assets/brand/glass.webp" alt="" draggable={false} className="absolute bottom-[-30px] left-1/2 h-[470px] w-auto -translate-x-1/2" style={{ filter: "drop-shadow(0 30px 30px rgba(0,25,8,0.5))" }} />
+      <OfficialStar size={110} className="absolute left-[70px] top-[36px] rotate-[-12deg]" />
+      <OfficialStar size={80} className="absolute right-[70px] top-[70px] rotate-[14deg]" />
+      <OfficialStar size={62} className="absolute left-[200px] top-[170px] rotate-[6deg]" />
+      {/* eslint-disable-next-line @next/next/no-img-element -- official crate packshot (the catcher) */}
+      <img src="/assets/brand/crate.webp" alt="" draggable={false} className="absolute bottom-[34px] left-1/2 w-[340px] -translate-x-1/2" style={{ filter: "drop-shadow(0 26px 26px rgba(0,25,8,0.5))" }} />
     </>
   );
+  // Real crates stacked: each covers the open top of the one below (rim at 20% height).
   const crateArt = (
     <div className="absolute inset-0">
       {[0, 1, 2].map((i) => (
-        // eslint-disable-next-line @next/next/no-img-element -- generated crate render
+        // eslint-disable-next-line @next/next/no-img-element -- official crate packshot
         <img
           key={i}
-          src={icons.crate}
+          src="/assets/brand/crate.webp"
           alt=""
           draggable={false}
-          className="absolute h-[170px] w-auto"
-          style={{ left: 110 + [0, 22, -10][i], bottom: 30 + i * 128, transform: `rotate(${[0, -2, 3][i]}deg)`, filter: "drop-shadow(0 18px 18px rgba(0,25,8,0.45))" }}
+          className="absolute w-[250px]"
+          style={{ left: 115 + [0, 26, -14][i], bottom: 24 + i * 146, filter: "drop-shadow(0 16px 18px rgba(0,25,8,0.45))" }}
         />
       ))}
     </div>

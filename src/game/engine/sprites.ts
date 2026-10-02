@@ -1,5 +1,5 @@
 import { H, W } from "./math";
-import { type BrandImages, LOGO_WORDMARK, logoRect } from "./brand-assets";
+import { type BrandImages, CRATE_RIM, LOGO_WORDMARK, logoRect } from "./brand-assets";
 import { PALETTE as P } from "./palette";
 
 /**
@@ -272,7 +272,7 @@ function officialStar(img: BrandImages, width: number, recolor?: (ctx: CanvasRen
  */
 export function createSharedSprites(img: BrandImages | null) {
   const base = proceduralSprites();
-  if (!img) return { ...base, glass: null as GlassSprite | null, wordmark: null as Sprite | null };
+  if (!img) return { ...base, glass: null as GlassSprite | null, wordmark: null as Sprite | null, crateImage: null as HTMLImageElement | null };
   const fx = img.fx;
   const width = STAR_R * 2.15;
   const redStar = officialStar(img, width);
@@ -300,12 +300,14 @@ export function createSharedSprites(img: BrandImages | null) {
       ctx.drawImage(fx.star_09, size * 0.58, size * 0.16, size * 0.3, size * 0.3);
     });
   })();
-  // Glass photo is 400x600 with the glass itself at x 115-284, foam top y 27, base y 561
-  // (measured alpha bbox). Crop to it, scale to the on-screen width, keep geometry for play.
-  const G = { sx: 95, sy: 15, sw: 210, sh: 585, glassX: 115, glassW: 169, rimY: 27, baseY: 561 };
-  const k = (176 / G.glassW) * (img.glass.naturalWidth / 400);
-  const gw = G.sw * k;
-  const gh = G.sh * k;
+  // Star Catcher catcher: the real crate, 300 px wide, anchored at its bottom centre.
+  const cw = 300;
+  const ch = (cw * img.crate.naturalHeight) / img.crate.naturalWidth;
+  const catcher = {
+    ...makeSprite(cw, ch, (ctx) => ctx.drawImage(img.crate, 0, 0, cw, ch), cw / 2, ch),
+    rimHalf: cw * 0.46,
+    rimHeight: ch * (1 - CRATE_RIM),
+  } as GlassSprite;
   const [wx, wy, ww, wh] = logoRect(LOGO_WORDMARK);
   return {
     ...base,
@@ -329,17 +331,15 @@ export function createSharedSprites(img: BrandImages | null) {
     glowIce: tint(fx.light_02, 300, P.ice, 0.8),
     ring: tint(fx.star_06, 256, "#ffffff"),
     // Real glass photo, baked at on-screen size (the source has wide transparent margins).
-    glass: {
-      ...makeSprite(gw, gh, (ctx) => ctx.drawImage(img.glass, G.sx * (img.glass.naturalWidth / 400), G.sy * (img.glass.naturalWidth / 400), G.sw * (img.glass.naturalWidth / 400), G.sh * (img.glass.naturalWidth / 400), 0, 0, gw, gh), (G.glassX + G.glassW / 2 - G.sx) * k, (G.baseY - G.sy) * k),
-      rimHalf: (G.glassW * k) / 2,
-      rimHeight: (G.baseY - G.rimY) * k,
-    } as GlassSprite | null,
+    glass: catcher as GlassSprite | null,
+    /** Crate packshot for Crate Stacker (drawn with per-crate source crops when sliced). */
+    crateImage: img.crate as HTMLImageElement | null,
     wordmark: makeSprite(ww / LOGO_SCALE_FOR_CRATE, wh / LOGO_SCALE_FOR_CRATE, (ctx) => ctx.drawImage(img.logo, wx, wy, ww, wh, 0, 0, ww / LOGO_SCALE_FOR_CRATE, wh / LOGO_SCALE_FOR_CRATE)),
   };
 }
 
 export type SharedSprites = ReturnType<typeof createSharedSprites>;
-/** Catcher art plus its play geometry: anchor at the glass base, rim relative to it. */
+/** Catcher art plus its play geometry: anchor at the catcher base, rim relative to it. */
 export type GlassSprite = Sprite & { rimHalf: number; rimHeight: number };
 
 /** Soft cinematic vignette shared by both games' backgrounds. */

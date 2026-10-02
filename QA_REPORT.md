@@ -83,6 +83,10 @@ Date: 2026-10-01/02. Build: Next.js 16.3.8 production build (`pnpm build && pnpm
 | 16 | Visual | The hero star's full 360° spin showed its dark back face | manual Chrome review |
 | 17 | Visual | Official-star crop picked up fragments of "EST."/"1873"; glow textures showed square edges | 1080x1920 captures |
 | 18 | Visual | Crate score popups covered the crate wordmark | captures |
+| 19 | Visual | Hero: bottle and glass covered the big star | owner feedback |
+| 20 | Visual | Star Catcher catcher was a beer-filled glass (wrong object; also off-message for responsible marketing) | owner feedback |
+| 21 | Visual | Crates were drawn, not the real Heineken crate | owner feedback |
+| 22 | Visual | Crate Stacker feedback text (PERFECT, xN, streak, milestone) overlapped each other and the hovering crate | 1080x1920 captures |
 
 Test-harness bugs (fixed, not app bugs):
 
@@ -115,6 +119,10 @@ All 18 are fixed and re-tested:
 16. The hero star sways ±38° instead of spinning.
 17. A clean `star.png` was generated with the text erased. Glow textures got a radial edge mask.
 18. Popup moved beside the stack.
+19. The star sits unobstructed above the product; the crate and bottle are grounded below it.
+20. The catcher is the official Heineken crate (3/4 packshot). Stars drop into its open top, and the play geometry comes from the photo.
+21. Official GS1 packshot of the Heineken 24x30cl crate (EAN 8712000033040). Crate Stacker stacks the photo, and slicing cuts through the photo itself, so the overhang falls off as part of the real crate.
+22. Fixed text slots between the HUD and the crate.
 
 ## Remaining known issues
 
@@ -123,6 +131,7 @@ All 18 are fixed and re-tested:
 - **Sounds were picked by name and duration, without listening.** Someone should listen on the kiosk speaker. Swapping a sound means replacing a file in `public/assets/sfx/`.
 - Music is a simple procedural loop. A licensed music bed would raise the quality.
 - The hazard (heat) and ice sprites are still procedural.
+- The crate packshot comes from a retailer CDN (Jumbo). It is Heineken's own GS1 product image, but the licence still has to come from Heineken.
 - 4-digit PIN (per the brief): about 30 guesses per hour globally makes brute force a matter of days, not minutes, and there are no alerts. Recommend 6+ digits; the code already accepts 4-8.
 - A global lockout can be triggered by anyone guessing PINs. That's an accepted trade-off: it denies admin access, not play.
 - No Content-Security-Policy header (Next inline scripts would need nonces).

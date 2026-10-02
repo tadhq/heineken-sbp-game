@@ -47,7 +47,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   },
   crate: {
     maxDurationSec: 150,
-    startWidth: 520,
+    startWidth: 440,
     minWidth: 40,
     startSpeed: 480,
     speedPerLevel: 22,

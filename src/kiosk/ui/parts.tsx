@@ -71,36 +71,37 @@ export function Backdrop({ lite = false }: { lite?: boolean }) {
 }
 
 /**
- * Attract-screen hero: official product photography (bottle and draught glass) with the
- * star swaying in real CSS 3D behind it and a slow light burst. All compositor-only.
+ * Attract-screen hero: the official star large and unobstructed, with the real product
+ * (crate and bottle) grounded below it. The star sways in real CSS 3D, a slow light burst
+ * turns behind it; all compositor-only.
  */
 export function ProductHero({ lite = false }: { lite?: boolean }) {
   return (
-    <div className="relative h-[900px] w-[1080px]">
+    <div className="relative h-[820px] w-[1080px]">
       <div
-        className={`absolute left-1/2 top-[300px] h-[1100px] w-[1100px] -translate-x-1/2 -translate-y-1/2 rounded-full ${lite ? "" : "motion-safe-only animate-spin-slow"}`}
+        className={`absolute left-1/2 top-[230px] h-[1100px] w-[1100px] rounded-full ${lite ? "-translate-x-1/2 -translate-y-1/2" : "motion-safe-only animate-spin-slow"}`}
         style={{ background: "repeating-conic-gradient(from 0deg, rgba(255,255,230,0.10) 0deg 7deg, rgba(255,255,230,0) 7deg 20deg)", maskImage: "radial-gradient(circle, black 20%, transparent 68%)", WebkitMaskImage: "radial-gradient(circle, black 20%, transparent 68%)" }}
       />
-      <div className="absolute left-1/2 top-[300px] -translate-x-1/2 -translate-y-1/2" style={{ perspective: 1400 }}>
+      <div className="absolute left-1/2 top-[200px] -translate-x-1/2 -translate-y-1/2" style={{ perspective: 1400 }}>
         <div className={lite ? "" : "motion-safe-only animate-star-spin"} style={{ transformStyle: "preserve-3d" }}>
-          <OfficialStar size={560} style={{ filter: "drop-shadow(0 30px 40px rgba(0,30,10,0.45))" }} />
+          <OfficialStar size={420} style={{ filter: "drop-shadow(0 26px 34px rgba(0,30,10,0.45))" }} />
         </div>
       </div>
-      {/* eslint-disable-next-line @next/next/no-img-element -- static brand photo, sized by layout */}
+      {/* eslint-disable-next-line @next/next/no-img-element -- official crate packshot */}
+      <img
+        src="/assets/brand/crate.webp"
+        alt="Heineken krat"
+        draggable={false}
+        className="absolute bottom-[0px] left-1/2 w-[500px] -translate-x-[42%]"
+        style={{ filter: "drop-shadow(0 34px 34px rgba(0,25,8,0.55))" }}
+      />
+      {/* eslint-disable-next-line @next/next/no-img-element -- official bottle packshot */}
       <img
         src="/assets/brand/bottle.webp"
         alt="Heineken Original"
         draggable={false}
-        className={`absolute left-[250px] top-[110px] h-[780px] w-auto -rotate-[8deg] ${lite ? "" : "motion-safe-only animate-float"}`}
-        style={{ filter: "drop-shadow(0 40px 40px rgba(0,25,8,0.55))" }}
-      />
-      {/* eslint-disable-next-line @next/next/no-img-element -- static brand photo, sized by layout */}
-      <img
-        src="/assets/brand/glass.webp"
-        alt=""
-        draggable={false}
-        className={`absolute left-[480px] top-[170px] h-[720px] w-auto rotate-[6deg] ${lite ? "" : "motion-safe-only animate-float"}`}
-        style={{ animationDelay: "-2.5s", filter: "drop-shadow(0 40px 40px rgba(0,25,8,0.5))" }}
+        className="absolute bottom-[-6px] left-[170px] h-[440px] w-auto -rotate-[4deg]"
+        style={{ filter: "drop-shadow(0 30px 30px rgba(0,25,8,0.55))" }}
       />
     </div>
   );

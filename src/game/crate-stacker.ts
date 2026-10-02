@@ -6,6 +6,7 @@ import { PALETTE as P } from "./engine/palette";
 import { Particles } from "./engine/particles";
 import { Popups } from "./engine/popups";
 import type { Game, Quality } from "./engine/runner";
+import { CRATE_RIM } from "./engine/brand-assets";
 import { beams, bokeh, brandBackdrop, makeSprite, type SharedSprites, type Sprite, starPath, vignette } from "./engine/sprites";
 import type { CrateResult, GameLabels } from "./types";
 
@@ -24,23 +25,33 @@ const DX = 34; // oblique depth: top face shifts right…
 const DY = 30; // …and up
 const GROUND_Y = 1660;
 const HOVER = 70;
-const MOVER_SCREEN_Y = 800;
+const MOVER_SCREEN_Y = 940;
+// Feedback text lives in fixed slots between the HUD and the hovering crate, never on it.
+const SLOT_PERFECT = 330;
+const SLOT_MULT = 440;
+const SLOT_BANNER = 430;
 const MIN_X = 70;
 const MAX_X = W - 70 - DX;
 const OUTRO_S = 2.4;
 const IDLE_END_S = 15;
 
-type Crate = { x: number; w: number };
-type Debris = { on: boolean; x: number; y: number; w: number; vx: number; vy: number; rot: number; vrot: number; shade: number };
+/** u0..u1: which horizontal slice of the crate photo this crate shows (slicing cuts the photo). */
+type Crate = { x: number; w: number; u0: number; u1: number };
+type Debris = { on: boolean; x: number; y: number; w: number; vx: number; vy: number; rot: number; vrot: number; shade: number; u0: number; u1: number };
 
 export class CrateStacker implements Game<CrateResult> {
   private stack: Crate[] = [];
-  private mover: Crate = { x: 0, w: 0 };
+  private mover: Crate = { x: 0, w: 0, u0: 0, u1: 1 };
   private dir = 1;
   private dropping = false;
   private dropY = 0;
   private dropV = 0;
-  private debris: Debris[] = Array.from({ length: 6 }, () => ({ on: false, x: 0, y: 0, w: 0, vx: 0, vy: 0, rot: 0, vrot: 0, shade: 0 }));
+  private debris: Debris[] = Array.from({ length: 6 }, () => ({ on: false, x: 0, y: 0, w: 0, vx: 0, vy: 0, rot: 0, vrot: 0, shade: 0, u0: 0, u1: 1 }));
+  /** Official crate packshot when loaded; procedural crate otherwise. */
+  private img: HTMLImageElement | null;
+  /** Height of one stack level (the crate's front face) and of the open top above it. */
+  private crateH = CRATE_H;
+  private crateTop = DY;
   private particles: Particles;
   private popups: Popups;
   private bg: Sprite;
@@ -120,7 +131,13 @@ export class CrateStacker implements Game<CrateResult> {
       ctx.fillStyle = P.starRed;
       ctx.fill();
     });
-    this.stack.push({ x: W / 2 - cfg.startWidth / 2 - DX / 2, w: cfg.startWidth });
+    this.img = sprites.crateImage;
+    if (this.img) {
+      const aspect = this.img.naturalHeight / this.img.naturalWidth;
+      this.crateH = cfg.startWidth * aspect * (1 - CRATE_RIM);
+      this.crateTop = cfg.startWidth * aspect * CRATE_RIM;
+    }
+    this.stack.push({ x: W / 2 - cfg.startWidth / 2 - (this.img ? 0 : DX / 2), w: cfg.startWidth, u0: 0, u1: 1 });
     this.spawnMover();
     this.hintT = 99;
   }
@@ -163,7 +180,7 @@ export class CrateStacker implements Game<CrateResult> {
     return this.stack.length;
   }
   private yOf(level: number) {
-    return GROUND_Y - level * CRATE_H;
+    return GROUND_Y - level * this.crateH;
   }
   private get speed() {
     const c = this.cfg;
@@ -173,7 +190,7 @@ export class CrateStacker implements Game<CrateResult> {
   private spawnMover() {
     const top = this.stack[this.stack.length - 1];
     this.dir = this.level % 2 ? 1 : -1;
-    this.mover = { w: top.w, x: this.dir > 0 ? MIN_X : MAX_X - top.w };
+    this.mover = { w: top.w, x: this.dir > 0 ? MIN_X : MAX_X - top.w, u0: top.u0, u1: top.u1 };
     this.dropping = false;
   }
 
@@ -255,7 +272,7 @@ export class CrateStacker implements Game<CrateResult> {
     const y = this.yOf(this.level);
 
     if (overlap <= 0) {
-      this.spawnDebris(cur.x, y, cur.w, offset > 0 ? 1 : -1);
+      this.spawnDebris(cur.x, y, cur.w, offset > 0 ? 1 : -1, cur.u0, cur.u1);
       audio.play("fall");
       return this.gameOver(this.labels.gameOver);
     }
@@ -263,19 +280,29 @@ export class CrateStacker implements Game<CrateResult> {
     const perfect = Math.abs(offset) <= c.perfectTolerance;
     let placed: Crate;
     if (perfect) {
-      placed = { x: prev.x, w: prev.w };
+      placed = { ...prev };
       this.combo++;
       this.stats.perfects++;
       if (this.combo % c.regrowAfter === 0 && placed.w < c.startWidth) {
         const grow = Math.min(c.regrowAmount, c.startWidth - placed.w);
-        placed.w += grow;
-        placed.x = clamp(placed.x - grow / 2, MIN_X, MAX_X - placed.w);
+        // The photo slice widens with the crate, never past the full crate.
+        const du = (grow / c.startWidth) * 0.5;
+        placed.u0 = Math.max(0, placed.u0 - du);
+        placed.u1 = Math.min(1, placed.u1 + du);
+        const nw = (placed.u1 - placed.u0) * c.startWidth;
+        placed.x = clamp(placed.x - (nw - placed.w) / 2, MIN_X, MAX_X - nw);
+        placed.w = nw;
       }
     } else {
-      placed = { x: left, w: overlap };
+      // Keep the part of the photo that overlaps; the overhang's slice falls off.
+      const span = cur.u1 - cur.u0;
+      const uL = cur.u0 + ((left - cur.x) / cur.w) * span;
+      const uR = cur.u0 + ((right - cur.x) / cur.w) * span;
+      placed = { x: left, w: overlap, u0: uL, u1: uR };
       const cutW = cur.w - overlap;
-      this.spawnDebris(offset > 0 ? right : cur.x, y, cutW, offset > 0 ? 1 : -1);
-      if (this.combo >= c.comboStep) this.popups.show(this.labels.comboLost, W / 2, MOVER_SCREEN_Y - 260, P.silver, 60, 0.9);
+      if (offset > 0) this.spawnDebris(right, y, cutW, 1, uR, cur.u1);
+      else this.spawnDebris(cur.x, y, cutW, -1, cur.u0, uL);
+      if (this.combo >= c.comboStep) this.popups.show(this.labels.comboLost, W / 2, SLOT_PERFECT, P.silver, 60, 0.9, 40);
       this.combo = 0;
       this.wobV += Math.sign(offset) * Math.min(1, Math.abs(offset) / prev.w) * 14;
       audio.play("slice", 1 + rand(-0.05, 0.05));
@@ -291,7 +318,7 @@ export class CrateStacker implements Game<CrateResult> {
     this.landT = 0.18;
     // Effects render in screen space: world y + camera offset.
     const sx = placed.x + placed.w / 2;
-    const sy = y - CRATE_H + this.cam;
+    const sy = y - this.crateH + this.cam;
     audio.play("drop", 1 + Math.min(this.level, 30) * 0.004);
 
     if (perfect) {
@@ -300,13 +327,13 @@ export class CrateStacker implements Game<CrateResult> {
       audio.play("perfect", Math.min(2, 1 + (this.combo - 1) * 0.06));
       this.particles.burst(sx, sy, 26, 7, 820, { life: 0.8, up: 380 });
       this.particles.burst(sx, sy, 14, 2, 520, { life: 0.6, size: 1.2 });
-      this.popups.show(this.labels.perfect, W / 2, MOVER_SCREEN_Y - 200, P.gold, 96, 0.9, 90);
+      this.popups.show(this.labels.perfect, W / 2, SLOT_PERFECT, P.gold, 96, 0.9, 40);
       if (this.combo % c.comboStep === 0 && this.mult > 1) {
-        this.popups.show(`x${this.mult}`, W / 2, MOVER_SCREEN_Y - 330, P.bright, 120, 1, 90);
+        this.popups.show(`x${this.mult}`, W / 2, SLOT_MULT, P.bright, 100, 1, 30);
         audio.play("combo", 1 + this.mult * 0.05);
       }
     } else {
-      this.particles.burst(sx, sy + CRATE_H - 6, 8, 5, 300, { life: 0.4, gravity: 600 });
+      this.particles.burst(sx, sy + this.crateH - 6, 8, 5, 300, { life: 0.4, gravity: 600 });
     }
     // Beside the stack, not on it: the next crate hovers right over the placed one.
     const px = placed.x + placed.w + DX + 90 < W - 60 ? placed.x + placed.w + DX + 90 : placed.x - 90;
@@ -321,11 +348,13 @@ export class CrateStacker implements Game<CrateResult> {
     this.spawnMover();
   }
 
-  private spawnDebris(x: number, y: number, w: number, dir: number) {
+  private spawnDebris(x: number, y: number, w: number, dir: number, u0 = 0, u1 = 1) {
     const d = this.debris.find((d) => !d.on) ?? this.debris[0];
     d.on = true;
     d.x = x;
-    d.y = y - CRATE_H;
+    d.y = y - this.crateH;
+    d.u0 = u0;
+    d.u1 = u1;
     d.w = w;
     d.vx = dir * rand(140, 260);
     d.vy = -rand(80, 200);
@@ -364,7 +393,7 @@ export class CrateStacker implements Game<CrateResult> {
     let oy = this.cam;
     if (this.outro > 0) {
       const blend = easeOutCubic(clamp((OUTRO_S - this.outro) / 1.1, 0, 1));
-      const span = GROUND_Y + 160 - (this.yOf(this.level) - DY - 60);
+      const span = GROUND_Y + 160 - (this.yOf(this.level) - this.crateTop - 60);
       z = lerp(1, clamp(1450 / span, 0.16, 1), blend);
       oy = lerp(this.cam, 1780 / z - (GROUND_Y + 160), blend);
     }
@@ -376,20 +405,20 @@ export class CrateStacker implements Game<CrateResult> {
     this.renderGround(ctx);
 
     const n = this.stack.length;
-    const from = Math.max(0, n - Math.ceil(H / (CRATE_H * z)) - 3);
+    const from = Math.max(0, n - Math.ceil(H / (this.crateH * z)) - 3);
     for (let i = from; i < n; i++) {
       const c = this.stack[i];
       // Sway grows toward the top of the stack.
       const k = n > 1 ? ((i - from) / Math.max(1, n - 1 - from)) ** 2 : 0;
       const sway = this.wob * 26 * k;
       const squash = i === n - 1 && this.landT > 0 ? Math.sin((this.landT / 0.18) * Math.PI) * 0.08 : 0;
-      this.drawCrate(ctx, c.x + sway, this.yOf(i), c.w, i === n - 1, i % 2, squash);
+      this.drawCrate(ctx, c.x + sway, this.yOf(i), c.w, i === n - 1, i % 2, squash, c);
       if (i === n - 1 && this.perfectT > 0) {
         ctx.globalAlpha = this.perfectT / 0.45;
         resetView(ctx);
         ctx.strokeStyle = P.gold;
         ctx.lineWidth = 6;
-        ctx.strokeRect(c.x + sway - 6, this.yOf(i) - CRATE_H - 6, c.w + 12, CRATE_H + 12);
+        ctx.strokeRect(c.x + sway - 6, this.yOf(i) - this.crateH - 6, c.w + 12, this.crateH + 12);
         ctx.globalAlpha = 1;
       }
     }
@@ -400,13 +429,14 @@ export class CrateStacker implements Game<CrateResult> {
       resetView(ctx);
       ctx.fillStyle = "rgba(255,255,255,0.05)";
       ctx.fillRect(this.mover.x, y, this.mover.w, this.yOf(this.level) - y);
-      this.drawCrate(ctx, this.mover.x, y, this.mover.w, true, this.level % 2, 0);
+      this.drawCrate(ctx, this.mover.x, y, this.mover.w, true, this.level % 2, 0, this.mover);
     }
 
     for (const d of this.debris) {
       if (!d.on) continue;
-      place(ctx, d.x + d.w / 2, d.y + CRATE_H / 2, 1, d.rot);
-      this.drawCrateLocal(ctx, -d.w / 2, -CRATE_H / 2, d.w, d.shade);
+      place(ctx, d.x + d.w / 2, d.y + this.crateH / 2, 1, d.rot);
+      if (this.img) this.drawPhoto(ctx, -d.w / 2, this.crateH / 2, d.w, d.u0, d.u1, 0);
+      else this.drawCrateLocal(ctx, -d.w / 2, -CRATE_H / 2, d.w, d.shade);
     }
 
     view.s = baseS;
@@ -419,8 +449,21 @@ export class CrateStacker implements Game<CrateResult> {
     this.renderHud(ctx);
   }
 
-  /** Crate whose front face spans y-CRATE_H..y in world space. */
-  private drawCrate(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, top: boolean, shade: number, squash: number) {
+  /** Photo crate whose front face bottom is at y; the open top sits above the face. */
+  private drawPhoto(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, u0: number, u1: number, squash: number) {
+    const img = this.img!;
+    const iw = img.naturalWidth;
+    const fullH = (this.crateH + this.crateTop) * (1 - squash);
+    ctx.drawImage(img, u0 * iw, 0, Math.max(1, (u1 - u0) * iw), img.naturalHeight, x, y - fullH, w, fullH);
+  }
+
+  /** Crate whose front face spans y-crateH..y in world space. */
+  private drawCrate(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, top: boolean, shade: number, squash: number, c?: Crate) {
+    if (this.img) {
+      resetView(ctx);
+      this.drawPhoto(ctx, x, y, w, c?.u0 ?? 0, c?.u1 ?? 1, squash);
+      return;
+    }
     const h = CRATE_H * (1 - squash);
     const fy = y - h;
     resetView(ctx);
@@ -646,7 +689,7 @@ export class CrateStacker implements Game<CrateResult> {
       const dur = this.outro > 0 ? OUTRO_S : 1.1;
       const intro = clamp((dur - this.bannerT) / 0.2, 0, 1);
       ctx.globalAlpha = Math.min(1, this.bannerT / 0.25);
-      place(ctx, W / 2, 560, lerp(0.6, 1, easeOutCubic(intro)));
+      place(ctx, W / 2, this.outro > 0 ? 560 : SLOT_BANNER, lerp(0.6, 1, easeOutCubic(intro)));
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.font = `800 128px ${this.font}`;

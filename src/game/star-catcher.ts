@@ -200,7 +200,9 @@ export class StarCatcher implements Game<StarResult> {
 
     // Glass follows the finger with heavy smoothing: responsive but never jittery.
     const prev = this.glassX;
-    this.glassX += (clamp(this.targetX, this.rimHalf, W - this.rimHalf) - this.glassX) * damp(26, realDt);
+    // Keep the whole catcher on screen, not just its opening.
+    const half = Math.max(this.rimHalf, this.glass.w / 2);
+    this.glassX += (clamp(this.targetX, half, W - half) - this.glassX) * damp(26, realDt);
     this.glassV = (this.glassX - prev) / realDt;
     // Tall glass pivots at its base, so keep the lean subtle.
     this.tilt += (clamp(this.glassV * 0.00012, -0.1, 0.1) - this.tilt) * damp(12, realDt);

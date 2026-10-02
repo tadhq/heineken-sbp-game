@@ -330,8 +330,8 @@ export function KioskApp() {
       {/* data-screen: stable hook for the e2e suite. */}
       <div data-screen={screen.name} className="absolute inset-0">
       {screen.name === "attract" && <Attract t={t} lite={lite} onStart={firstTap} onAdmin={() => router.push("/admin")} />}
-      {screen.name === "select" && icon && (
-        <Select t={t} icons={icon} lite={lite} best={best} onPick={pick} onBoard={() => setScreen({ name: "board" })} leaderboard={k.leaderboardEnabled && k.leaderboardGames.length > 0} />
+      {screen.name === "select" && (
+        <Select t={t} lite={lite} best={best} onPick={pick} onBoard={() => setScreen({ name: "board" })} leaderboard={k.leaderboardEnabled && k.leaderboardGames.length > 0} />
       )}
       {screen.name === "age" && (
         <AgeGate

@@ -15,11 +15,10 @@ These assets were included **at the project owner's request**, on the basis that
 | `brand/heineken-logo.svg` | https://www.heineken.com/media/zmnkoinc/heineken-logo.svg | Vector logo (white wordmark, red star, "EST. 1873") | Heineken trademark, client licence required | None (13.8 KB vector) | Attract and select screens; crate wordmark (cropped at runtime) |
 | `brand/star.png` | Derived from the logo above | Official red star with white keyline, 512x488 PNG | As above | "EST."/"1873" erased, tight-cropped (script in git history, commit "Real brand assets") | All in-game stars, the golden-star variant, menu stars |
 | `brand/enjoy-responsibly.svg` | https://www.heineken.com/media/e0uigisg/enjoy-responsibly.svg | Responsible-consumption "e" mark | As above | None (7.4 KB) | Footer of every player screen |
-| `brand/glass.webp` | https://www.heineken.com/media/4ftncelb/heineken-draught-glass.png | Product photo, draught glass | As above | 432x648 PNG (221 KB) → 400x600 WebP q86 (42 KB) | Star Catcher catcher, select card, attract hero |
-| `brand/bottle.webp` | https://www.heineken.com/media/iene2ygx/heineken-original-bottle.png | Product photo, Heineken Original bottle | As above | 1506x2258 PNG (2.0 MB) → 733x1100 WebP q84 (91 KB) | Attract hero |
-| `brand/bottle-00.webp` | https://www.heineken.com/media/m0jj5343/hnk-00-bottle.png | Product photo, Heineken 0.0 bottle | As above | 1000x1500 PNG (770 KB) → WebP q84 (78 KB) | Reserved for a 0.0 tie-in (on-strategy per the Responsible Marketing Code §2.8) |
-| `brand/keg.webp` | https://www.heineken.com/media/oldhcfta/heineken-draught-keg.png | Product photo, draught keg | As above | → 400x600 WebP (56 KB) | Reserved |
-| `brand/can.webp` | https://www.heineken.com/media/hxqpwwlv/heineken-original-can.png | Product photo, can | As above | → WebP (82 KB) | Reserved |
+| `brand/crate.webp` | https://www.jumbo.com/dam-images/Products/25032024_1711381870774_1711381878587_8712000033040_5.png (official GS1 packshot of Heineken 24x30cl crate, EAN 8712000033040, as distributed to retailers) | Product photo, 3/4 view crate with bottle caps | Heineken trademark/copyright, client licence required | 2246x1644 PNG (5 MB) → 1000x732 WebP q88 (68 KB) | Crate Stacker crates (sliced through the photo), Star Catcher catcher, menus and hero |
+| `brand/bottle.webp` | https://www.heineken.com/media/iene2ygx/heineken-original-bottle.png | Product photo, Heineken Original bottle | As above | 1506x2258 PNG (2.0 MB) → 733x1100 WebP q84 (91 KB) | Attract hero, next to the crate |
+
+Removed after review: the draught glass (a beer-filled glass is the wrong object to catch stars in), the keg, the can and the 0.0 bottle (unused).
 
 Brand colours taken from these files: the star red `#E3000F` (logo SVG, class `st0`), and the brand-green radial `#4FAA33` → `#105D25`, sampled from https://www.heineken.com/media/wzsdqeus/gradient-wide-green.jpg.
 
@@ -51,4 +50,4 @@ The sound choices were made by file name and duration, without listening. **Have
 
 ## Totals
 
-`public/assets` is 672 KB: brand 416 KB, effects 68 KB, sound 188 KB. All of it is precached by the service worker for offline play.
+`public/assets` is 480 KB: brand 224 KB, effects 68 KB, sound 188 KB. All of it is precached by the service worker for offline play.

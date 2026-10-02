@@ -33,40 +33,19 @@ export function getIcons(): Record<RuleIcon, string> {
   // Glowing sprites carry halo padding; crop to the core so every icon reads the same size.
   const crop = (sp: Sprite, core: number) =>
     url(makeSprite(200, 200, (ctx) => ctx.drawImage(sp.canvas, sp.cx - core / 2, sp.cy - core / 2, core, core, 0, 0, 200, 200)).canvas);
+  // Real crate packshot when loaded, otherwise a simple drawn crate.
+  const crateUrl = s.crateImage ? "/assets/brand/crate.webp" : null;
   const crate = makeSprite(220, 180, (ctx) => {
-    ctx.fillStyle = "#0a4a1d";
-    ctx.beginPath();
-    ctx.moveTo(180, 70);
-    ctx.lineTo(210, 44);
-    ctx.lineTo(210, 134);
-    ctx.lineTo(180, 160);
-    ctx.fill();
-    ctx.fillStyle = "#33a843";
-    ctx.beginPath();
-    ctx.moveTo(10, 70);
-    ctx.lineTo(40, 44);
-    ctx.lineTo(210, 44);
-    ctx.lineTo(180, 70);
-    ctx.fill();
-    const g = ctx.createLinearGradient(0, 70, 0, 160);
-    g.addColorStop(0, "#3fb04a");
-    g.addColorStop(0.1, "#16862f");
-    g.addColorStop(1, "#0a5a22");
-    ctx.fillStyle = g;
-    ctx.fillRect(10, 70, 170, 90);
-    if (s.wordmark) {
-      const w = 130;
-      const h = (s.wordmark.h / s.wordmark.w) * w;
-      ctx.drawImage(s.wordmark.canvas, 95 - w / 2, 118 - h / 2, w, h);
-      ctx.drawImage(s.redStar.canvas, 95 - 18, 76, 36, (36 * s.redStar.h) / s.redStar.w);
-    }
+    ctx.fillStyle = "#16862f";
+    ctx.fillRect(10, 50, 200, 120);
+    ctx.drawImage(s.redStar.canvas, 92, 70, 36, (36 * s.redStar.h) / s.redStar.w);
   });
   icons = {
     redStar: crop(s.redStar, STAR_R * 2.6),
     goldStar: crop(s.goldStar, Math.max(s.goldStar.w, s.goldStar.h)), // include the whole glow: no hard edge
     sun: crop(s.sun, STAR_R * 3.4),
     ice: crop(s.ice, STAR_R * 2.2),
-    crate: url(crate.canvas),
+    crate: crateUrl ?? url(crate.canvas),
   };
   return icons;
 }
