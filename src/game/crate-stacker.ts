@@ -132,7 +132,8 @@ export class CrateStacker implements Game<CrateResult> {
     this.particles = new Particles(220, sprites.particles);
     this.popups = new Popups(14, font);
     this.bg = makeSprite(W, H, (ctx) => this.paintBackground(ctx, false));
-    this.far = makeSprite(W, H, (ctx) => this.paintStacks(ctx, [30, 200, W - 200 - 160, W - 30 - 160], 160, 0.3, 2.5, 0.35));
+    // Far stacks are soft silhouettes: crisp crate edges behind the moving crate read as a ghost border.
+    this.far = makeSprite(W, H, (ctx) => this.paintStacks(ctx, [30, 200, W - 200 - 160, W - 30 - 160], 160, 0.2, 4, 0.2));
     this.mid = makeSprite(W, H, (ctx) => this.paintStacks(ctx, [-160, W - 120], 280, 0.45, 0.8, 0.55));
     this.pallet = makeSprite(cfg.startWidth + 120, 70, (ctx) => {
       const w = cfg.startWidth + 120;
@@ -279,7 +280,7 @@ export class CrateStacker implements Game<CrateResult> {
     ctx.filter = "none";
     // Depth haze over the layer.
     const haze = ctx.createLinearGradient(0, 0, W, 0);
-    const a = blur > 1 ? 0.5 : 0.22;
+    const a = blur > 1 ? 0.6 : 0.22;
     haze.addColorStop(0, `rgba(6,45,22,${a * 0.6})`);
     haze.addColorStop(0.5, `rgba(6,45,22,${a})`);
     haze.addColorStop(1, `rgba(6,45,22,${a * 0.6})`);
