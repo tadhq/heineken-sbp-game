@@ -36,7 +36,7 @@ export function Attract({ t, lite, onStart, onAdmin }: { t: Dict; lite: boolean;
       <div className="absolute inset-x-0 top-[290px]">
         <ProductHero lite={lite} />
       </div>
-      <div className="absolute inset-x-0 top-[1265px] flex flex-col items-center px-16 text-center">
+      <div className="absolute inset-x-0 top-[1135px] flex flex-col items-center px-16 text-center">
         <h1 className="font-display text-[168px] font-bold uppercase leading-[0.9] tracking-tight text-cream drop-shadow-[0_8px_24px_rgba(0,30,10,0.5)]">
           {t.playAndWin}
         </h1>
@@ -46,7 +46,7 @@ export function Attract({ t, lite, onStart, onAdmin }: { t: Dict; lite: boolean;
           <span>{t.games.crate.name}</span>
         </div>
       </div>
-      <div className="absolute inset-x-0 top-[1610px] flex justify-center">
+      <div className="absolute inset-x-0 top-[1530px] flex justify-center">
         <div className={`btn-primary h-[156px] w-[740px] text-[60px] ${lite ? "" : "motion-safe-only animate-pulse-soft"}`}>
           {t.tapToStart}
           {!lite && <span className="motion-safe-only absolute inset-y-0 left-0 w-1/3 animate-shine bg-white/25" aria-hidden />}

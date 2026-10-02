@@ -76,33 +76,39 @@ export function Backdrop({ lite = false }: { lite?: boolean }) {
  * turns behind it; all compositor-only.
  */
 export function ProductHero({ lite = false }: { lite?: boolean }) {
-  // Star is 960 wide (912 tall); its centre sits ~505px from the top, and the packshots sit on that centre.
+  // Star (760 wide, centre ~420px down) is the backdrop; crate and bottle stand on one floor
+  // line between its legs so they read as sitting inside the star, not pasted over it.
   return (
-    <div className="relative h-[920px] w-[1080px]">
+    <div className="relative h-[780px] w-[1080px]">
       <div
-        className={`absolute left-1/2 top-[505px] h-[1100px] w-[1100px] rounded-full ${lite ? "-translate-x-1/2 -translate-y-1/2" : "motion-safe-only animate-spin-slow"}`}
+        className={`absolute left-1/2 top-[420px] h-[1000px] w-[1000px] rounded-full ${lite ? "-translate-x-1/2 -translate-y-1/2" : "motion-safe-only animate-spin-slow"}`}
         style={{ background: "repeating-conic-gradient(from 0deg, rgba(255,255,230,0.10) 0deg 7deg, rgba(255,255,230,0) 7deg 20deg)", maskImage: "radial-gradient(circle, black 20%, transparent 68%)", WebkitMaskImage: "radial-gradient(circle, black 20%, transparent 68%)" }}
       />
-      <div className="absolute left-1/2 top-0 -translate-x-1/2" style={{ perspective: 1800 }}>
+      <div className="absolute left-1/2 top-[20px] -translate-x-1/2" style={{ perspective: 1800 }}>
         <div className={lite ? "" : "motion-safe-only animate-star-spin"} style={{ transformStyle: "preserve-3d" }}>
-          <OfficialStar size={960} className="max-w-none" style={{ filter: "drop-shadow(0 26px 34px rgba(0,30,10,0.45))" }} />
+          <OfficialStar size={760} className="max-w-none" style={{ filter: "drop-shadow(0 22px 30px rgba(0,30,10,0.45))" }} />
         </div>
       </div>
+      <div
+        className="absolute left-[270px] top-[724px] h-[60px] w-[540px] rounded-[50%]"
+        style={{ background: "radial-gradient(closest-side, rgba(0,25,8,0.55), rgba(0,25,8,0))" }}
+        aria-hidden
+      />
       {/* eslint-disable-next-line @next/next/no-img-element -- official crate packshot */}
       <img
         src="/assets/brand/crate.webp"
         alt="Heineken krat"
         draggable={false}
-        className="absolute left-[350px] top-[400px] w-[460px]"
-        style={{ filter: "drop-shadow(0 30px 30px rgba(0,25,8,0.55))" }}
+        className="absolute left-[340px] top-[457px] w-[400px] max-w-none"
+        style={{ filter: "drop-shadow(0 18px 22px rgba(0,25,8,0.5))" }}
       />
       {/* eslint-disable-next-line @next/next/no-img-element -- official bottle packshot */}
       <img
         src="/assets/brand/bottle.webp"
         alt="Heineken Original"
         draggable={false}
-        className="absolute left-[275px] top-[380px] h-[370px] w-auto -rotate-[4deg]"
-        style={{ filter: "drop-shadow(0 26px 26px rgba(0,25,8,0.55))" }}
+        className="absolute left-[250px] top-[432px] h-[330px] w-auto max-w-none"
+        style={{ filter: "drop-shadow(0 18px 22px rgba(0,25,8,0.5))" }}
       />
     </div>
   );
