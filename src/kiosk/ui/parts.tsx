@@ -89,13 +89,10 @@ export function Backdrop({ lite = false, tint }: { lite?: boolean; tint?: keyof 
   );
 }
 
-/** Attract-screen hero: the supplied multipack, large and centred on a lit floor. Static. */
+/** Attract-screen hero: the supplied multipack, large and centred. Static, no floor shadow. */
 export function ProductHero() {
   return (
     <div className="relative h-[780px] w-[1080px]">
-      {/* Spotlight pool on the floor, then the contact shadow. */}
-      <div className="absolute left-[90px] top-[600px] h-[220px] w-[900px] rounded-[50%]" style={{ background: "radial-gradient(closest-side, rgba(220,255,200,0.22), rgba(220,255,200,0))" }} aria-hidden />
-      <div className="absolute left-[150px] top-[688px] h-[80px] w-[780px] rounded-[50%]" style={{ background: "radial-gradient(closest-side, rgba(0,25,8,0.65), rgba(0,25,8,0))" }} aria-hidden />
       <div className="absolute left-1/2 top-[150px] -translate-x-1/2">
         {/* eslint-disable-next-line @next/next/no-img-element -- supplied multipack photo */}
         <img
@@ -103,7 +100,7 @@ export function ProductHero() {
           alt="Heineken multipack"
           draggable={false}
           className="w-[900px] max-w-none"
-          style={{ filter: "drop-shadow(0 26px 30px rgba(0,25,8,0.55))" }}
+          style={{ filter: "drop-shadow(0 6px 10px rgba(0,25,8,0.45))" }}
         />
       </div>
     </div>
