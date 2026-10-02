@@ -31,18 +31,35 @@ test("@soak long session stays stable", async ({ page, context }) => {
   const cdp = await context.newCDPSession(page);
   await cdp.send("Performance.enable");
 
+  // Count AudioContexts ever created: a long session must keep exactly one.
+  await page.addInitScript(() => {
+    const W = window as unknown as { __ctxCount: number; AudioContext: typeof AudioContext };
+    W.__ctxCount = 0;
+    const Orig = W.AudioContext;
+    W.AudioContext = class extends Orig {
+      constructor(o?: AudioContextOptions) {
+        super(o);
+        W.__ctxCount++;
+      }
+    };
+  });
   await page.goto("/?bot&fps");
   await setKioskToken(page, token);
   await page.reload();
   await waitScreen(page, "attract");
   await page.locator('[data-screen="attract"]').click({ position: { x: 540, y: 1500 } });
 
-  const samples: { game: number; heapMB: number; nodes: number; listeners: number; fps: number[]; throttled: boolean }[] = [];
+  type AudioStats = { contexts: number; voices: number; decodedStems: number; musicSources: number; state: string };
+  const samples: { game: number; heapMB: number; nodes: number; listeners: number; audio: AudioStats; fps: number[]; throttled: boolean }[] = [];
   const metric = async () => {
     await cdp.send("HeapProfiler.collectGarbage");
     const { metrics } = await cdp.send("Performance.getMetrics");
     const m = Object.fromEntries(metrics.map((x) => [x.name, x.value]));
-    return { heapMB: +(m.JSHeapUsedSize / 1048576).toFixed(2), nodes: m.Nodes, listeners: m.JSEventListeners };
+    const audio = await page.evaluate(() => {
+      const w = window as unknown as { __ctxCount: number; __kioskAudio?: { stats(): Record<string, unknown> } };
+      return { contexts: w.__ctxCount, ...w.__kioskAudio?.stats() } as { contexts: number; voices: number; decodedStems: number; musicSources: number; state: string };
+    });
+    return { heapMB: +(m.JSHeapUsedSize / 1048576).toFixed(2), nodes: m.Nodes, listeners: m.JSEventListeners, audio };
   };
 
   let current: "Star Catcher" | "Crate Stacker" = "Crate Stacker";
@@ -118,4 +135,12 @@ test("@soak long session stays stable", async ({ page, context }) => {
   expect(lastUnthrottled.heapMB).toBeLessThan(first.heapMB * 1.3 + 4);
   expect(lastUnthrottled.nodes).toBeLessThan(first.nodes + 300);
   expect(lastUnthrottled.listeners).toBeLessThan(first.listeners + 100);
+  // Audio: one context, bounded voices, at most lobby + one game's stems decoded, one music track.
+  for (const sm of samples) {
+    expect(sm.audio.contexts).toBe(1);
+    expect(sm.audio.state).toBe("running");
+    expect(sm.audio.voices).toBeLessThanOrEqual(12);
+    expect(sm.audio.decodedStems).toBeLessThanOrEqual(3);
+    expect(sm.audio.musicSources).toBeLessThanOrEqual(2);
+  }
 });

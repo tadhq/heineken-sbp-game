@@ -121,7 +121,7 @@ export async function playOnce(page: Page, game: "Star Catcher" | "Crate Stacker
   // Tap the countdown overlay to skip it (it sits above the canvas).
   await page.locator('[data-screen="play"]').click({ position: { x: 30, y: 300 } });
   await waitScreen(page, "result", timeout);
-  await page.waitForTimeout(1600); // prize card / initials sheet animate in
+  await page.waitForTimeout(3000); // staged reveal: score locks at 1.15 s, prize card lands by ~2.8 s
   await assertFitsStage(page);
 }
 

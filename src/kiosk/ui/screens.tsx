@@ -547,7 +547,7 @@ export function Result({
           {phase >= 2 &&
             (prize ? (
               <div className="relative">
-                <p className="text-gold-foil animate-stamp font-display text-[110px] font-bold uppercase leading-none" style={{ filter: "drop-shadow(0 8px 24px rgba(120,60,0,0.5))" }}>
+                <p className="text-gold-foil animate-pop-in font-display text-[110px] font-bold uppercase leading-none" style={{ filter: "drop-shadow(0 8px 24px rgba(120,60,0,0.5))" }}>
                   {t.congrats}
                 </p>
                 <div className="mt-8 animate-prize-in rounded-[56px] p-[5px]" style={{ animationDelay: "0.15s", background: "linear-gradient(135deg, #fff2c0, #ffc94a 30%, #b97d10 60%, #ffe28a)" }}>

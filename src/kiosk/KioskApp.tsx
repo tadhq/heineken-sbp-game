@@ -88,6 +88,11 @@ export function KioskApp() {
       for (const i of items.filter((i) => i.hold)) await store.updateSession(i.id, {}, false);
       flush();
     });
+    // Long-press must never open the browser's image/link menu on a public touchscreen.
+    const noMenu = (e: Event) => e.preventDefault();
+    document.addEventListener("contextmenu", noMenu);
+    // QA hook (soak test reads audio diagnostics); only with the ?bot autopilot flag.
+    if (new URLSearchParams(window.location.search).has("bot")) (window as unknown as { __kioskAudio: typeof audio }).__kioskAudio = audio;
     const onErr = (e: ErrorEvent) => logError(e.message || "error", e.filename);
     const onRej = (e: PromiseRejectionEvent) => logError(String(e.reason).slice(0, 300), "unhandledrejection");
     const onOnline = () => {
@@ -101,6 +106,7 @@ export function KioskApp() {
     window.addEventListener("offline", onOffline);
     const syncTimer = setInterval(flush, SYNC_EVERY_MS);
     return () => {
+      document.removeEventListener("contextmenu", noMenu);
       window.removeEventListener("error", onErr);
       window.removeEventListener("unhandledrejection", onRej);
       window.removeEventListener("online", onOnline);

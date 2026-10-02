@@ -17,6 +17,8 @@ test("@perf auto quality under 6x CPU throttle", async ({ page, context }) => {
   cfg.kiosk.language = "en";
   cfg.star.durationSec = 20;
   cfg.crate.maxDurationSec = 20;
+  // PERF_AUDIO=0 isolates rendering cost from audio cost.
+  if (process.env.PERF_AUDIO === "0") cfg.kiosk.musicEnabled = cfg.kiosk.soundEnabled = false;
   await putConfig(admin, cfg, "perf");
   const results: Record<string, { fps: number[]; level: string[] }> = {};
   try {
