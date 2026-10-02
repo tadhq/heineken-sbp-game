@@ -57,7 +57,9 @@ describe("checkPlausibility", () => {
   });
   it("accepts a prize the rules agree with", () => {
     const p = star({ score: 620, prize: { awardId: "0b8e3f8a-2c4d-4e6f-8a0b-1c2d3e4f5a6b", prizeId: "star-t1", prizeName: "Prize Tier 1" } });
-    expect(checkPlausibility(DEFAULT_CONFIG, p)).toEqual([]);
+    const withPrizes = structuredClone(DEFAULT_CONFIG);
+    withPrizes.kiosk.prizesEnabled = true;
+    expect(checkPlausibility(withPrizes, p)).toEqual([]);
   });
   it("bounds Crate Stacker by height and time", () => {
     expect(checkPlausibility(DEFAULT_CONFIG, crate(900, 20))).toEqual([]);

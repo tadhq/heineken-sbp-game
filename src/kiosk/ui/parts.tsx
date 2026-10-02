@@ -1,7 +1,7 @@
 "use client";
 
 import { CONE_H, CONE_W, FIXTURES, trussY } from "@/game/engine/stage-lights";
-import { getHeroGlass, getStageArt } from "../assets";
+import { getStageArt } from "../assets";
 
 const STAR_POINTS = Array.from({ length: 10 }, (_, i) => {
   const a = -Math.PI / 2 + (i * Math.PI) / 5;
@@ -90,40 +90,29 @@ export function Backdrop({ lite = false, tint }: { lite?: boolean; tint?: keyof 
 }
 
 /**
- * Attract-screen hero: the official star large and unobstructed, with the real product
- * grounded below it: the supplied multipack and the game's own glass, nearly full.
- * The star sways in real CSS 3D, a slow light burst turns behind it; all compositor-only.
+ * Attract-screen hero: the supplied multipack, large and centred on a lit floor, with a
+ * slow light burst turning behind it. Compositor-only animation.
  */
 export function ProductHero({ lite = false }: { lite?: boolean }) {
   return (
     <div className="relative h-[780px] w-[1080px]">
       <div
-        className={`absolute left-1/2 top-[420px] h-[1000px] w-[1000px] rounded-full ${lite ? "-translate-x-1/2 -translate-y-1/2" : "motion-safe-only animate-spin-slow"}`}
-        style={{ background: "repeating-conic-gradient(from 0deg, rgba(255,255,230,0.10) 0deg 7deg, rgba(255,255,230,0) 7deg 20deg)", maskImage: "radial-gradient(circle, black 20%, transparent 68%)", WebkitMaskImage: "radial-gradient(circle, black 20%, transparent 68%)" }}
+        className={`absolute left-1/2 top-[400px] h-[1100px] w-[1100px] rounded-full ${lite ? "-translate-x-1/2 -translate-y-1/2" : "motion-safe-only animate-spin-slow"}`}
+        style={{ background: "repeating-conic-gradient(from 0deg, rgba(255,255,230,0.12) 0deg 7deg, rgba(255,255,230,0) 7deg 20deg)", maskImage: "radial-gradient(circle, black 20%, transparent 68%)", WebkitMaskImage: "radial-gradient(circle, black 20%, transparent 68%)" }}
       />
-      <div className="absolute left-1/2 top-[20px] -translate-x-1/2" style={{ perspective: 1800 }}>
-        <div className={lite ? "" : "motion-safe-only animate-star-spin"} style={{ transformStyle: "preserve-3d" }}>
-          <OfficialStar size={720} className="max-w-none" style={{ filter: "drop-shadow(0 22px 30px rgba(0,30,10,0.45))" }} />
-        </div>
+      {/* Spotlight pool on the floor, then the contact shadow. */}
+      <div className="absolute left-[90px] top-[600px] h-[220px] w-[900px] rounded-[50%]" style={{ background: "radial-gradient(closest-side, rgba(220,255,200,0.22), rgba(220,255,200,0))" }} aria-hidden />
+      <div className="absolute left-[150px] top-[688px] h-[80px] w-[780px] rounded-[50%]" style={{ background: "radial-gradient(closest-side, rgba(0,25,8,0.65), rgba(0,25,8,0))" }} aria-hidden />
+      <div className="absolute left-1/2 top-[150px] -translate-x-1/2">
+        {/* eslint-disable-next-line @next/next/no-img-element -- supplied multipack photo */}
+        <img
+          src="/assets/brand/multipack.webp"
+          alt="Heineken multipack"
+          draggable={false}
+          className="w-[900px] max-w-none"
+          style={{ filter: "drop-shadow(0 26px 30px rgba(0,25,8,0.55))" }}
+        />
       </div>
-      {/* Floor: contact shadow and a soft reflection pool under the products. */}
-      <div className="absolute left-[150px] top-[722px] h-[70px] w-[780px] rounded-[50%]" style={{ background: "radial-gradient(closest-side, rgba(0,25,8,0.6), rgba(0,25,8,0))" }} aria-hidden />
-      {/* eslint-disable-next-line @next/next/no-img-element -- supplied multipack photo */}
-      <img
-        src="/assets/brand/multipack.webp"
-        alt="Heineken multipack"
-        draggable={false}
-        className="absolute left-[130px] top-[392px] w-[600px] max-w-none"
-        style={{ filter: "drop-shadow(0 20px 24px rgba(0,25,8,0.55))" }}
-      />
-      {/* eslint-disable-next-line @next/next/no-img-element -- the game's glass, rendered with beer */}
-      <img
-        src={getHeroGlass()}
-        alt="Heineken glas"
-        draggable={false}
-        className="absolute left-[742px] top-[400px] h-[350px] w-auto max-w-none"
-        style={{ filter: "drop-shadow(0 18px 22px rgba(0,25,8,0.5))" }}
-      />
     </div>
   );
 }

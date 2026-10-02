@@ -436,7 +436,10 @@ function CountUp({ to, ms = 1100 }: { to: number; ms?: number }) {
   return <span ref={ref}>{to}</span>;
 }
 
-/** Score lands, locks in, then the prize (or thank-you) reveals: about two seconds, all skippable by buttons. */
+/**
+ * Score lands, locks in, then the stats and the "show staff" line settle: about two seconds.
+ * No prize is shown on the kiosk: the organiser decides on site from the score.
+ */
 const LOCK_MS = 1150;
 const REVEAL_MS = 1900;
 
@@ -457,7 +460,7 @@ export function Result({
   onOther: () => void;
   onTimeout: () => void;
 }) {
-  const { result, prize } = data;
+  const { result } = data;
   const [left, setLeft] = useState(autoReturnSec);
   const [phase, setPhase] = useState(0);
   const timeout = useEffectEvent(onTimeout);
@@ -469,19 +472,14 @@ export function Result({
     }, LOCK_MS);
     const reveal = setTimeout(() => {
       setPhase(2);
-      if (prize) {
-        // The prize moment owns the room: music dips under the sting, then returns.
-        audio.duck(0.7, 3.2);
-        audio.play("unlock");
-        setTimeout(() => audio.play("prize"), 380);
-      } else audio.play("milestone");
+      audio.play("milestone");
     }, REVEAL_MS);
     return () => {
       clearInterval(id);
       clearTimeout(lock);
       clearTimeout(reveal);
     };
-  }, [prize]);
+  }, []);
   useEffect(() => {
     if (left <= 0) timeout();
   }, [left]);
@@ -504,86 +502,51 @@ export function Result({
   return (
     <div className="absolute inset-0" onPointerDown={touch}>
       <Backdrop lite tint={result.game} />
-      {/* Slow light rays behind the reveal; only while a prize is on screen. */}
-      {prize && phase >= 2 && (
+      {/* Slow light rays behind the score once it locks in. */}
+      {phase >= 1 && (
         <div
-          className="motion-safe-only pointer-events-none absolute left-1/2 top-[1080px] h-[1500px] w-[1500px] animate-spin-slow rounded-full"
+          className="motion-safe-only pointer-events-none absolute left-1/2 top-[760px] h-[1500px] w-[1500px] animate-spin-slow rounded-full"
           style={{
-            background: "repeating-conic-gradient(from 0deg, rgba(255,214,100,0.16) 0deg 8deg, rgba(255,214,100,0) 8deg 22deg)",
+            background: "repeating-conic-gradient(from 0deg, rgba(255,214,100,0.12) 0deg 8deg, rgba(255,214,100,0) 8deg 22deg)",
             maskImage: "radial-gradient(circle, black 15%, transparent 65%)",
             WebkitMaskImage: "radial-gradient(circle, black 15%, transparent 65%)",
           }}
           aria-hidden
         />
       )}
-      <div className="relative flex h-full flex-col items-center px-16 pt-[130px] text-center">
-        <p className="eyebrow text-[44px] text-silver">{t.finalScore}</p>
-        <p key={phase >= 1 ? "locked" : "counting"} className={`tabular font-display text-[260px] font-bold leading-[0.95] ${phase >= 1 ? "animate-stamp" : "animate-pop-in"} ${data.isBest ? "text-gold-foil" : "text-cream"}`} style={{ filter: "drop-shadow(0 12px 40px rgba(0,30,10,0.55))" }}>
-          {phase >= 1 ? result.score : <CountUp to={result.score} />}
-        </p>
-        <div className="flex h-[76px] items-center gap-4">
-          {phase >= 1 && (
-            <span className="flex animate-fade-in items-center gap-3 rounded-full px-6 py-2 tile">
-              <svg viewBox="0 0 24 24" className="h-[34px] w-[34px] text-bright" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <rect x="5" y="11" width="14" height="10" rx="2" />
-                <path d="M8 11V8a4 4 0 018 0v3" />
-              </svg>
-              <span className="eyebrow text-[24px] text-cream/90">{t.scoreLocked}</span>
-            </span>
-          )}
-          {phase >= 1 && data.isBest && <span className="eyebrow animate-stamp rounded-full bg-gold px-6 py-2 text-[26px] text-ink">{t.newBest}</span>}
-        </div>
-        <div className="mt-6 grid h-[170px] w-full grid-cols-3 gap-6">
-          {phase >= 1 &&
-            stats.map(([label, v], i) => (
-              <div key={label} className="flex animate-slide-up flex-col justify-center rounded-[36px] panel" style={{ animationDelay: `${i * 0.07}s` }}>
-                <p className="tabular font-display text-[84px] font-bold leading-none text-cream">{v}</p>
-                <p className="eyebrow mt-2 text-[24px] text-silver">{label}</p>
-              </div>
-            ))}
-        </div>
-
-        <div className="mt-10 w-full">
-          {phase >= 2 &&
-            (prize ? (
-              <div className="relative">
-                <p className="text-gold-foil animate-pop-in font-display text-[110px] font-bold uppercase leading-none" style={{ filter: "drop-shadow(0 8px 24px rgba(120,60,0,0.5))" }}>
-                  {t.congrats}
-                </p>
-                <div className="mt-8 animate-prize-in rounded-[56px] p-[5px]" style={{ animationDelay: "0.15s", background: "linear-gradient(135deg, #fff2c0, #ffc94a 30%, #b97d10 60%, #ffe28a)" }}>
-                  <div className="relative overflow-hidden rounded-[52px] px-12 py-10" style={{ background: "linear-gradient(165deg, #3c2b06 0%, #0d3a1a 55%, #062a14 100%)" }}>
-                    <span className="motion-safe-only pointer-events-none absolute inset-y-0 left-0 w-1/3 animate-foil bg-gradient-to-r from-transparent via-white/20 to-transparent" aria-hidden />
-                    <p className="eyebrow text-[30px] text-gold">{t.youWon}</p>
-                    <div className="mt-5 flex items-center justify-center gap-10">
-                      {prize.imageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element -- admin-configured URL (https or own path only, validated)
-                        <img src={prize.imageUrl} alt="" className="h-[200px] w-[200px] rounded-[32px] object-cover shadow-[0_16px_30px_-10px_rgba(0,0,0,0.6)]" draggable={false} />
-                      ) : (
-                        // No prize photo configured: the product itself is the reward visual.
-                        // eslint-disable-next-line @next/next/no-img-element -- supplied multipack photo
-                        <img src="/assets/brand/multipack.webp" alt="" className="h-auto w-[300px] drop-shadow-[0_16px_24px_rgba(0,0,0,0.55)]" draggable={false} />
-                      )}
-                      <div>
-                        <p className="font-display text-[112px] font-bold uppercase leading-[0.92] text-cream">{prize.name}</p>
-                        {prize.description && <p className="mt-3 font-sans text-[36px] text-cream/80">{prize.description}</p>}
-                      </div>
-                    </div>
-                    <div className="mx-auto my-7 h-[2px] w-2/3 bg-gradient-to-r from-transparent via-gold/50 to-transparent" />
-                    <p className="font-sans text-[32px] text-silver">{t.showStaff}</p>
-                    {data.awardCode && (
-                      <p className="mx-auto mt-4 inline-block rounded-[24px] px-8 py-3 font-mono text-[56px] font-bold tracking-[0.2em] text-cream tile">
-                        {t.code}: {data.awardCode}
-                      </p>
-                    )}
-                  </div>
+      {/* Score centre stage: staff decide any prize on site from this number. */}
+      <div className="relative flex h-full flex-col items-center px-16 text-center">
+        <div className="flex flex-1 flex-col items-center justify-center pt-[120px]">
+          <p className="eyebrow text-[48px] text-silver">{t.finalScore}</p>
+          <p
+            key={phase >= 1 ? "locked" : "counting"}
+            className={`tabular font-display text-[340px] font-bold leading-[0.9] ${phase >= 1 ? "animate-stamp" : "animate-pop-in"} ${data.isBest ? "text-gold-foil" : "text-cream"}`}
+            style={{ filter: "drop-shadow(0 14px 44px rgba(0,30,10,0.55))" }}
+          >
+            {phase >= 1 ? result.score : <CountUp to={result.score} />}
+          </p>
+          <div className="mt-4 flex h-[76px] items-center gap-4">
+            {phase >= 1 && (
+              <span className="flex animate-fade-in items-center gap-3 rounded-full px-6 py-2 tile">
+                <svg viewBox="0 0 24 24" className="h-[34px] w-[34px] text-bright" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <rect x="5" y="11" width="14" height="10" rx="2" />
+                  <path d="M8 11V8a4 4 0 018 0v3" />
+                </svg>
+                <span className="eyebrow text-[24px] text-cream/90">{t.scoreLocked}</span>
+              </span>
+            )}
+            {phase >= 1 && data.isBest && <span className="eyebrow animate-stamp rounded-full bg-gold px-6 py-2 text-[26px] text-ink">{t.newBest}</span>}
+          </div>
+          <div className="mt-10 grid h-[190px] w-[940px] grid-cols-3 gap-6">
+            {phase >= 1 &&
+              stats.map(([label, v], i) => (
+                <div key={label} className="flex animate-slide-up flex-col justify-center rounded-[36px] panel" style={{ animationDelay: `${i * 0.07}s` }}>
+                  <p className="tabular font-display text-[92px] font-bold leading-none text-cream">{v}</p>
+                  <p className="eyebrow mt-2 text-[24px] text-silver">{label}</p>
                 </div>
-              </div>
-            ) : (
-              <div className="panel animate-slide-up rounded-[56px] px-12 py-12">
-                <p className="font-display text-[84px] font-bold uppercase leading-none text-cream">{t.thanks}</p>
-                <p className="mt-5 font-sans text-[40px] text-silver">{t.tryAgainHint}</p>
-              </div>
-            ))}
+              ))}
+          </div>
+          <p className={`mt-12 font-sans text-[40px] text-cream/85 transition-opacity duration-500 ${phase >= 2 ? "opacity-100" : "opacity-0"}`}>{t.showStaff}</p>
         </div>
 
         <div className="mt-auto flex w-full gap-8 pb-[150px]">

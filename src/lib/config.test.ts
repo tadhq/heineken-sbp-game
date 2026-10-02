@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 import { type AppConfig, DEFAULT_CONFIG, normalizeConfig, resolvePrize } from "./config";
 import { appConfigSchema } from "./config-schema";
 
-const cfg = (patch: Partial<AppConfig> = {}): AppConfig => structuredClone({ ...DEFAULT_CONFIG, ...patch });
+// Prizes are off by default (awarded on site); the rules are still tested with them on.
+const cfg = (patch: Partial<AppConfig> = {}): AppConfig => {
+  const c = structuredClone({ ...DEFAULT_CONFIG, ...patch });
+  c.kiosk.prizesEnabled = true;
+  return c;
+};
 
 describe("resolvePrize", () => {
   it("returns null below every threshold", () => {

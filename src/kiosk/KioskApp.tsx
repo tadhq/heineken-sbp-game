@@ -428,7 +428,7 @@ export function KioskApp() {
           key={screen.sessionId}
           t={t}
           data={screen.data}
-          autoReturnSec={screen.data.prize ? 90 : 25}
+          autoReturnSec={45}
           onReplay={() => play(screen.game)}
           onOther={() => setScreen({ name: "select" })}
           onTimeout={() => setScreen({ name: "attract" })}

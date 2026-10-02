@@ -87,7 +87,8 @@ export const DEFAULT_CONFIG: AppConfig = {
     quality: "auto",
     requestFullscreen: true,
     defaultGame: null,
-    prizesEnabled: true,
+    // Off: the organiser awards prizes on site from the score shown on the result screen.
+    prizesEnabled: false,
     leaderboardEnabled: true,
     leaderboardGames: ["crate", "star"],
     leaderboardSize: 10,

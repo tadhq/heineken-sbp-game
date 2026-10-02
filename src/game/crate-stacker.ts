@@ -132,8 +132,8 @@ export class CrateStacker implements Game<CrateResult> {
     this.particles = new Particles(220, sprites.particles);
     this.popups = new Popups(14, font);
     this.bg = makeSprite(W, H, (ctx) => this.paintBackground(ctx, false));
-    this.far = makeSprite(W, H, (ctx) => this.paintRacking(ctx, 0.62, 0.38, 11));
-    this.mid = makeSprite(W, H, (ctx) => this.paintRacking(ctx, 1, 0.6, 23));
+    this.far = makeSprite(W, H, (ctx) => this.paintStacks(ctx, [30, 200, W - 200 - 160, W - 30 - 160], 160, 0.3, 2.5, 0.35));
+    this.mid = makeSprite(W, H, (ctx) => this.paintStacks(ctx, [-160, W - 120], 280, 0.45, 0.8, 0.55));
     this.pallet = makeSprite(cfg.startWidth + 120, 70, (ctx) => {
       const w = cfg.startWidth + 120;
       // Wooden pallet: deck boards over three blocks, lit from above.
@@ -235,33 +235,55 @@ export class CrateStacker implements Game<CrateResult> {
     ctx.drawImage(this.sprites.lights.rig.canvas, 0, RIG_Y);
   }
 
-  /** Tileable warehouse racking stocked with multipacks; two depths for parallax. */
-  private paintRacking(ctx: CanvasRenderingContext2D, scale: number, light: number, seed: number) {
-    let s = seed;
-    const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
-    const mp = this.sprites.multipack;
-    const bay = 300 * scale;
-    const level = 300 * scale;
-    // Racks only at the sides: the tower's column stays clean.
-    const xs = scale < 1 ? [-40, 230, W - 230 - bay + 40, W - bay + 40] : [-bay * 0.55, W - bay * 0.45];
-    for (const x0 of xs) {
-      for (let y = 0; y < H; y += level) {
-        if (mp && rnd() > 0.2) {
-          const mw = bay * 0.82;
-          const mh = (mp.naturalHeight / mp.naturalWidth) * mw;
-          ctx.filter = `brightness(${light}) saturate(0.8)${scale < 1 ? " blur(1.5px)" : ""}`;
-          ctx.drawImage(mp, x0 + bay * 0.08, y + level - mh - 6, mw, mh);
-          ctx.filter = "none";
-        }
-        ctx.fillStyle = `rgba(${scale < 1 ? "150,40,30" : "190,50,35"},${0.35 * light + 0.2})`;
-        ctx.fillRect(x0, y + level - 8, bay, 8);
+  /**
+   * Tileable pallet stacks of the Heineken crate (the game's own piece) for parallax:
+   * columns of crates on pallets, kept to the sides so the tower's column stays clean.
+   * `light` darkens with depth; the far layer is softly out of focus.
+   */
+  private paintStacks(ctx: CanvasRenderingContext2D, cols: number[], crateW: number, light: number, blur: number, sat: number) {
+    const img = this.sprites.crateImage;
+    // Warehouse back wall: vertical panels catching a little light, darker at the edges.
+    if (blur > 0) {
+      for (let x = 0; x < W; x += 135) {
+        const k = 1 - Math.abs(x + 67 - W / 2) / (W / 2);
+        ctx.fillStyle = `rgba(0,25,10,${0.18 + (1 - k) * 0.12})`;
+        ctx.fillRect(x, 0, 4, H);
       }
-      ctx.fillStyle = `rgba(30,60,45,${0.5 + light * 0.3})`;
-      ctx.fillRect(x0, 0, 10 * scale, H);
-      ctx.fillRect(x0 + bay - 10 * scale, 0, 10 * scale, H);
     }
-    // Atmospheric haze toward the far layer.
-    ctx.fillStyle = `rgba(6,45,22,${scale < 1 ? 0.45 : 0.15})`;
+    if (!img) return;
+    const ch = crateW * (img.naturalHeight / img.naturalWidth);
+    const face = ch * (1 - CRATE_RIM);
+    const pallet = crateW * 0.09;
+    // Groups of crates on a pallet; the group height is fitted so the layer tiles at H.
+    const groups = Math.max(1, Math.round(H / (face * 5 + pallet)));
+    const groupH = H / groups;
+    const perGroup = Math.max(1, Math.floor((groupH - pallet) / face));
+    const step = (groupH - pallet) / perGroup;
+    // Muted and dark: the background stacks must never read like the player's crates.
+    ctx.filter = `brightness(${light}) saturate(${sat})${blur ? ` blur(${blur}px)` : ""}`;
+    for (const x of cols) {
+      for (let gI = 0; gI < groups; gI++) {
+        const base = (gI + 1) * groupH;
+        // Pallet under each group: deck boards over blocks.
+        ctx.fillStyle = "#6b4a22";
+        ctx.fillRect(x - crateW * 0.04, base - pallet, crateW * 1.08, pallet * 0.45);
+        ctx.fillStyle = "#3d2a12";
+        for (const bx of [0, 0.46, 0.92]) ctx.fillRect(x + crateW * bx - crateW * 0.02, base - pallet * 0.55, crateW * 0.1, pallet * 0.55);
+        // Crates bottom-up: each one covers the open top of the crate below.
+        for (let c = 0; c < perGroup; c++) {
+          const bottom = base - pallet - c * step;
+          ctx.drawImage(img, x, bottom - ch * (step / face), crateW, ch * (step / face));
+        }
+      }
+    }
+    ctx.filter = "none";
+    // Depth haze over the layer.
+    const haze = ctx.createLinearGradient(0, 0, W, 0);
+    const a = blur > 1 ? 0.5 : 0.22;
+    haze.addColorStop(0, `rgba(6,45,22,${a * 0.6})`);
+    haze.addColorStop(0.5, `rgba(6,45,22,${a})`);
+    haze.addColorStop(1, `rgba(6,45,22,${a * 0.6})`);
+    ctx.fillStyle = haze;
     ctx.fillRect(0, 0, W, H);
   }
 

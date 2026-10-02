@@ -25,6 +25,8 @@ test.beforeAll(async () => {
   testConfig.kiosk.language = "en";
   testConfig.kiosk.leaderboardEnabled = true;
   testConfig.kiosk.leaderboardInitials = true;
+  // Prize records stay testable even though the kiosk no longer shows prizes.
+  testConfig.kiosk.prizesEnabled = true;
   // Low thresholds so a bot round reliably wins something.
   testConfig.prizes = testConfig.prizes.map((p) => ({ ...p, minScore: Math.round(p.minScore / 10), maxScore: p.maxScore === null ? null : Math.round(p.maxScore / 10) }));
   await putConfig(admin, testConfig, "e2e: short rounds");
@@ -35,7 +37,7 @@ test.afterAll(async () => {
   await putConfig(admin, original, "e2e: restore");
 });
 
-test("Star Catcher: attract to result, prize matches the rules, record saved before reveal", async ({ page }) => {
+test("Star Catcher: attract to result, score centre stage (no prize shown), prize record follows the rules, saved before reveal", async ({ page }) => {
   await page.goto("/?bot");
   await waitScreen(page, "attract");
   await page.locator('[data-screen="attract"]').click({ position: { x: 270, y: 700 } });
@@ -46,15 +48,12 @@ test("Star Catcher: attract to result, prize matches the rules, record saved bef
   const { score, prize } = items[0].payload;
   expect(score).toBeGreaterThan(0);
   const expected = resolvePrize(testConfig, "star", score);
-  if (expected) {
-    expect(prize).toMatchObject({ prizeId: expected.id });
-    await expect(page.getByText("Congratulations!")).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText(expected.name, { exact: true })).toBeVisible();
-    await expect(page.getByText(/Code: [0-9A-F]{6}/)).toBeVisible();
-  } else {
-    expect(prize).toBeNull();
-    await expect(page.getByText("Thanks for playing!")).toBeVisible();
-  }
+  if (expected) expect(prize).toMatchObject({ prizeId: expected.id });
+  else expect(prize).toBeNull();
+  // The organiser awards prizes on site from the score: the kiosk never shows one.
+  await expect(page.getByText(String(score), { exact: true })).toBeVisible({ timeout: 5000 });
+  await expect(page.getByText("Show your score to a staff member")).toBeVisible();
+  await expect(page.getByText("Congratulations!")).toHaveCount(0);
 });
 
 test("Crate Stacker offline: plays, keeps the result, syncs exactly once when back online", async ({ page, context }) => {

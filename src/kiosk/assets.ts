@@ -18,7 +18,6 @@ export function getSprites(): SharedSprites {
     builtWithImages = !!img;
     icons = null;
     glassIcon = null;
-    heroGlass = null;
     stageArt = null;
   }
   return sprites;
@@ -79,13 +78,6 @@ function filledGlass(level: number): HTMLCanvasElement {
     ctx.drawImage(beer.canvas, 0, 0);
     ctx.drawImage(art.sprite.canvas, 0, 0);
   }).canvas;
-}
-
-let heroGlass: string | null = null;
-/** A nearly full glass for the attract hero. */
-export function getHeroGlass(): string {
-  heroGlass ??= filledGlass(0.9).toDataURL("image/png");
-  return heroGlass;
 }
 
 let glassIcon: string | null = null;
