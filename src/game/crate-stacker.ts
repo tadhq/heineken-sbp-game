@@ -778,10 +778,8 @@ export class CrateStacker implements Game<CrateResult> {
   private renderMover(ctx: CanvasRenderingContext2D) {
     const m = this.mover;
     const y = this.yOf(this.level) - HOVER + (this.dropping ? this.dropY : 0);
-    // Drop guide: faint column showing where the crate will land, and its shadow on the stack.
+    // Landing preview: the crate's shadow on the stack (a filled guide column read as a glitch).
     resetView(ctx);
-    ctx.fillStyle = m.golden ? "rgba(255,201,74,0.08)" : "rgba(255,255,255,0.05)";
-    ctx.fillRect(m.x, y, m.w, this.yOf(this.level) - y);
     ctx.globalAlpha = this.dropping ? 0.5 + 0.5 * (this.dropY / HOVER) : 0.45;
     ctx.drawImage(this.ao.canvas, m.x, this.yOf(this.level), m.w, 26);
     ctx.globalAlpha = 1;
