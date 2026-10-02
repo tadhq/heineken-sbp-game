@@ -24,30 +24,43 @@ Brand colours taken from these files: the star red `#E3000F` (logo SVG, class `s
 
 **Fonts.** The Heineken typefaces are proprietary (LucasFonts, exclusive to Heineken) and were **not** copied. The UI uses PT Sans and PT Sans Narrow, which is heineken.com's own fallback font (SIL OFL).
 
-## Effects and sound (Kenney, CC0)
+## Particle textures (Kenney, CC0)
 
 Kenney packs are public domain (CC0 1.0): commercial use is allowed and no attribution is required. Credit is given in CREDITS.md anyway.
 
 | File(s) | Pack and source | Optimisation | Used for |
 |---|---|---|---|
 | `fx/star_09.png`, `star_04.png`, `star_06.png`, `star_08.png`, `flare_01.png`, `light_02.png`, `spark_03.png` | Particle Pack 1.1, https://kenney.nl/assets/particle-pack | 512x512 → 128x128, metadata stripped. White textures are tinted to brand colours at load. | Particles, glows, golden-star sparkle, twinkles |
-| `sfx/tap`, `tick`, `go`, `dodge`, `miss`, `slice`, `perfect`, `milestone` (.ogg) | Interface Sounds, https://kenney.nl/assets/interface-sounds | Original Vorbis, 0.02-0.6 s each | UI and game feedback |
-| `sfx/catch`, `chill`, `drop` (.ogg) | Impact Sounds, https://kenney.nl/assets/impact-sounds | Original | Glass clink on catch, ice, crate landing |
-| `sfx/golden`, `hazard`, `fall`, `combo` (.ogg) | Digital Audio, https://kenney.nl/assets/digital-audio | Original | Bonus, penalty, crate falling, multiplier |
-| `sfx/end`, `prize` (.ogg) | Music Jingles, https://kenney.nl/assets/music-jingles | Original | Round end, prize reveal |
 
-The Kenney Casino Audio pack was downloaded but **deliberately not used**: casino sounds would suggest gambling (Responsible Marketing Code §4.5).
+## Music and sound effects (original, composed in code)
 
-The sound choices were made by file name and duration, without listening. **Have someone listen on the kiosk speaker.** Any effect can be remapped by replacing a file in `public/assets/sfx/` with the same name.
+Every sound is original to this project: composed and synthesised by `scripts/compose-audio.mjs` (oscillators, filters, FM bells, Freeverb-style reverb, ping-pong delay, sidechain), then encoded to Opus with ffmpeg. No samples, no generated-by-service audio, no licence to clear. Re-render with `node scripts/compose-audio.mjs` (or `... music` / `... sfx`); output is deterministic (seeded noise).
+
+Why this approach (2026-10-02): a music-generation service would need its own licence review and an internet round trip per change; runtime synthesis (Tone.js or a Web Audio sequencer) costs CPU on the kiosk every frame. Pre-rendered loop stems cost nothing at runtime beyond mixing two buffers, play offline from the service-worker cache, and still allow adaptive layering.
+
+| Files | What | Format | Size |
+|---|---|---|---|
+| `music/lobby.ogg` | Menu loop: half-time, warm pads, bell motif. 104 BPM, 8 bars, Am-F-C-G | Opus 112 kbps stereo, 18.46 s | 2.3 MB for all five |
+| `music/star-base.ogg`, `star-energy.ogg` | Star Catcher: four-on-the-floor house, 126 BPM, 16 bars. Energy stem = pluck arp, hook, shaker, fills | as above, 30.48 s each | |
+| `music/crate-base.ogg`, `crate-energy.ogg` | Crate Stacker: syncopated, "crate knock" percussion, 116 BPM, 16 bars, Dm-Bb-Gm-A | as above, 33.10 s each | |
+| `sfx/*.ogg` (27) | UI (tap, select, back, open, close), countdown (tick, go), Star Catcher (catch, golden, hazard, chill, dodge, combo, miss, milestone, end), Crate Stacker (slide, drop, land, slice, perfect, unstable, fall), result (count, reveal, unlock, prize) | Opus 48-80 kbps | 428 KB total |
+
+All cues share one five-note "star motif" (E-A-G-E-D in A minor, transposed for Crate Stacker); the prize sting resolves it to A major. Loops are rendered with a 2.5 s tail folded back onto the start, so reverb and delay ring across the loop point; decoded lengths match the bar grid exactly.
+
+Measured (ffmpeg ebur128): game base stems -15 to -16 LUFS integrated, energy stems ~5 dB below, lobby -13.8 LUFS; summed stems peak at -1 dBFS. SFX peaks are set per cue (-2 dBFS for the prize sting down to -20 dBFS for the count tick).
+
+**Nobody has listened to these yet** (they were designed and checked by measurement: loudness, peaks, loop seams, spectrogram). Have someone listen on the kiosk speaker before the event; any cue can be re-tuned in the script or replaced by a file with the same name.
+
+The Kenney sound effects used before this pass were removed.
 
 ## Generated in code
 
 - Sun/heat hazard and ice cube sprites (`src/game/engine/sprites.ts`).
 - Crate geometry: faces, ribs, bottle caps.
 - Bokeh, light beams, the bar counter.
-- The music sequencer.
+- All music and sound effects (`scripts/compose-audio.mjs`).
 - Fallback versions of all game art, used only if the files above fail to load.
 
 ## Totals
 
-`public/assets` is 480 KB: brand 224 KB, effects 68 KB, sound 188 KB. All of it is precached by the service worker for offline play.
+`public/assets` is about 3.0 MB: brand 224 KB, effects 68 KB, sound effects 428 KB, music 2.3 MB. All of it is precached by the service worker for offline play.

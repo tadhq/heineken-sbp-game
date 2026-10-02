@@ -47,9 +47,24 @@ Stack:
 
 - **Inactivity:** after `attractDelaySec` without a tap, menus return to attract.
 - **Result timeout:** the result screen returns after 25 s, or 90 s when a prize is shown, so staff can see the code.
-- **Hidden gesture:** holding the brand mark for 3 s opens `/admin`.
-- **First tap** on attract unlocks audio and requests fullscreen.
+- **Hidden gestures:** holding the brand mark for 3 s opens the staff screen; holding the bottom-right corner (180x180 px) for 1.2 s opens the settings panel (volumes, music/effects on-off, fullscreen). A tap, a swipe through the corner or a finger that moves more than 30 px cancels; a ring fills while holding. Not mounted during play.
+- **First tap** on attract unlocks audio, plays a confirmation chime and requests fullscreen (the Fullscreen API needs that user activation; the settings panel can toggle it again).
+- **Motion system:** every screen enters with the same 340 ms scale/fade (`animate-screen-in`, keyed by screen); entering a game closes a star-shaped iris over the menu, mounts the canvas underneath, then fades; the countdown starts once the iris has cleared. Surfaces use shared `.panel`, `.tile`, `.btn-primary`, `.btn-secondary` and `.press` classes (globals.css), no backdrop blur.
+- **Result sequence:** score counts up (ticking), locks in at 1.15 s, the prize card (or thank-you panel) reveals at 1.9 s with the music ducked under the prize sting.
 - **Config updates** are fetched in the background and applied only between games, never mid-round.
+
+## Audio
+
+```
+sfx voices ─▶ sfxBus ─┐
+track stems ─▶ fader ─▶ duck ─▶ musicBus ─┴─▶ master ─▶ speakers
+```
+
+- **One AudioContext per page**, created on the first tap and never recreated; any later tap resumes it if Android suspended it. Without Web Audio it falls back to `<audio>` elements. Every call is a no-op on failure.
+- **Effects:** 27 Opus files decoded once into AudioBuffers; a sound is one buffer source (+ gain/panner only when needed). Same-sound rate limit 30 ms, at most 12 voices (big moments always play). Catches climb a pentatonic scale by playback rate and pan with the catch position.
+- **Music:** `audio.music(track)` crossfades (0.5 s in, 0.6 s out). Tracks: `lobby` on menus, the game's own track from GO, silence on attract and during the countdown. Each game track is a base and an energy stem started at the same audio-clock time (sample-locked loops); `audio.intensity(0..1)` sets the energy stem's gain from the multiplier, a golden star, tower height and the last 10 s. `audio.duck()` dips music for the prize reveal. Only the current track's and the lobby's stems stay decoded (~12 MB PCM per 30 s stereo stem).
+- **Mix and settings:** master / music / effects volumes (slider position squared = gain) plus music and effects on/off. Admin sets defaults (`kiosk.audio`) and can lock music or effects off (`musicEnabled`, `soundEnabled`). Player changes are kept in localStorage per device until the admin defaults change (`src/kiosk/audio-prefs.ts`, unit-tested).
+- **Content:** composed in code by `scripts/compose-audio.mjs` (see ASSETS.md).
 
 ## Game engine and rendering
 
@@ -61,13 +76,15 @@ GameView (React, mounts once per run)
        └─ Game         update(dt) / render(ctx) / pointer() / result()
             ├─ Particles   typed-array pool (no allocation while playing)
             ├─ Popups      fixed slot pool
-            └─ Sprites     pre-rendered offscreen canvases
+            ├─ Sprites     pre-rendered offscreen canvases
+            └─ Juice       pooled rings and "flyers" (points travel to the score plate), baked HUD plates and chips (engine/hud.ts)
 ```
 
 - **React never sees frames.** `GameView` creates the Runner once. The game calls back exactly once, on finish. The HUD is drawn on the canvas. The `?fps` readout writes `textContent` directly.
 - **Draw path.** Each sprite costs one `setTransform` and one `drawImage`. There is no `shadowBlur`, no save/restore per sprite, and gradients are only baked into sprites at start-up. The canvas uses `alpha:false` and `desynchronized:true`.
 - **Quality.** `auto` starts high. Two consecutive seconds above 22 ms per frame switch to **low**: render scale 0.72, about a third of the particles, no additive glows, no parallax extras. That choice is persisted in localStorage. Admin can force high or low. "Effects off" also disables shake and flashes.
-- **Determinism.** Crate placement is pure arithmetic (no physics engine). Sway is a damped spring that only affects drawing.
+- **Determinism.** Crate placement is pure arithmetic (no physics engine). Sway, landing camera kick, perfect-drop zoom pulse and the "wobbly tower" tremble (narrow or leaning stack) only affect drawing, never placement or score.
+- **Feedback budget.** High quality adds star motion ghosts, golden-star light, baked shadowed HUD plates; low quality falls back to flat plates. Hazard and final-seconds warnings are a baked red edge glow (one stretched blit), not a full-screen flash; golden flash is capped at 22% opacity.
 - **QA autopilot.** `?bot` lets each game play itself through the real code path. The soak test uses it. It is harmless in production: a browser without a kiosk token cannot sync.
 
 ## Backend
