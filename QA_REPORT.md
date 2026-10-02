@@ -9,6 +9,7 @@ Date: 2026-10-01/02. Build: Next.js 16.3.8 production build (`pnpm build && pnpm
 | **Target** | Android 11 Chrome kiosk, portrait 1080x1920. **Not available during development: every on-device test below is marked NOT RUN.** |
 | Automated browser | Chromium headless shell 153 (Playwright 1.63), viewports 1080x1920 / 540x960 / 1920x1080 / 360x740, touch enabled, DPR 1 |
 | Manual browser | Desktop Google Chrome (owner's profile, via Claude in Chrome) for menu and admin screens. That window was occluded (`visibilityState: hidden`), so rAF-driven gameplay could not be judged there; gameplay frames come from the headless captures. |
+| Android 11 emulator | API 30, arm64, 1080x1920, **stock Android System WebView 91**; debug APK built from this repo, installed via adb |
 | Low-end proxy | Chrome DevTools CPU throttling at 6x during the soak. **This is a proxy, not the device:** headless Chromium renders canvas through SwiftShader/Metal on an Apple M-series machine, so the GPU and fill-rate behaviour of the kiosk SoC is not represented. |
 | Host | macOS 27.0.1 (Apple silicon), Node 25.2.1, Postgres 17 (Docker) |
 
@@ -19,8 +20,10 @@ Date: 2026-10-01/02. Build: Next.js 16.3.8 production build (`pnpm build && pnpm
 | Typecheck | `pnpm typecheck` | PASS, 0 errors |
 | Lint | `pnpm lint` | PASS, 0 errors, 0 warnings |
 | Unit (vitest) | `pnpm test` | PASS, 26/26 |
-| E2E functional, security, offline, layout (Playwright) | `pnpm test:e2e` | PASS, 25/25 |
-| Soak, 120 games, one page | `pnpm test:soak` | see Performance results |
+| E2E functional, security, offline, layout, pairing/CORS (Playwright) | `pnpm test:e2e` | PASS, 26/26 |
+| Soak, 120 games, one page | `pnpm test:soak` | PASS (27.3 min), see Performance results |
+| Low-end proxy, auto quality, 6x CPU | `playwright test --grep @perf` | PASS, see Performance results |
+| Android app on an Android 11 emulator | manual via adb (steps below) | PASS after fixes 24-27 |
 | Visual captures at 1080x1920 | `playwright test --grep @shots` | captured, reviewed (see Polish) |
 
 ## Tests
@@ -59,7 +62,8 @@ Date: 2026-10-01/02. Build: Next.js 16.3.8 production build (`pnpm build && pnpm
 | Malformed sync records | PASS | e2e: rejected individually, batch still 200; batch over 100 → 400 |
 | Kiosk revocation | PASS | e2e |
 | Long-session stability | see below | soak |
-| Android 11 Chrome compatibility, touch latency, audio, fullscreen, orientation on device | **NOT RUN** | no device; see the checklist below |
+| Android 11 compatibility (APK, WebView 91) | PASS on emulator | It cold-starts with no network: attract renders fullscreen with system bars hidden, portrait. A Crate Stacker game played offline was scored (139) and showed on the offline leaderboard. Pairing while offline is refused with a clear message. Pairing online with the PIN registered the device, and the offline game arrived on the server **exactly once**. The staff screen unlocks offline with the local PIN hash and shows Offline correctly. |
+| Touch latency, audio output, real GPU frame rate on the physical kiosk | **NOT RUN** | no device; see the checklist below |
 
 ## Bugs found
 
@@ -87,6 +91,11 @@ Date: 2026-10-01/02. Build: Next.js 16.3.8 production build (`pnpm build && pnpm
 | 20 | Visual | Star Catcher catcher was a beer-filled glass (wrong object; also off-message for responsible marketing) | owner feedback |
 | 21 | Visual | Crates were drawn, not the real Heineken crate | owner feedback |
 | 22 | Visual | Crate Stacker feedback text (PERFECT, xN, streak, milestone) overlapped each other and the hovering crate | 1080x1920 captures |
+| 24 | **Critical** | The APK showed a blank screen on Android 11's stock WebView 91: Next 16 targets Chrome 111+ (class static blocks, needing Chrome 94). The same applies to the website on any kiosk whose WebView or Chrome is that old. | Android 11 emulator |
+| 25 | High | Canvas `roundRect` (Chrome 99) is used every HUD frame; on WebView 91 it would throw every frame | code audit for #24 |
+| 26 | Medium | The staff screen showed "Online" in airplane mode: `navigator.onLine` is unreliable in Android WebView | emulator |
+| 27 | Low | The staff screen's "last upload" reset to "not yet" after an app restart | emulator |
+| 28 | Low | Crate Stacker ran at 27-30 fps under 6x CPU: the crate photo was resampled from 1000 px every frame, plus two full-screen parallax blits | @perf test |
 | 23 | Visual | Owner wants an empty Heineken glass as the Star Catcher catcher (not a crate, not a filled glass) | owner feedback |
 
 Test-harness bugs (fixed, not app bugs):
@@ -124,10 +133,18 @@ All 18 are fixed and re-tested:
 20. The catcher is the official Heineken crate (3/4 packshot). Stars drop into its open top, and the play geometry comes from the photo.
 21. Official GS1 packshot of the Heineken 24x30cl crate (EAN 8712000033040). Crate Stacker stacks the photo, and slicing cuts through the photo itself, so the overhang falls off as part of the real crate.
 22. Fixed text slots between the HUD and the crate.
+24. Added `browserslist: chrome 90` (Next.js honours it), so the framework and app code are transpiled. Verified: no static blocks left in the bundle, and the APK runs on WebView 91.
+25. A `roundRect` polyfill loads before the app, via `instrumentation-client.ts`.
+26. The staff screen probes the server (config fetch) every 10 s to decide Online/Offline.
+27. The last upload time is persisted on the device.
+28. The crate photo is pre-scaled once to its on-screen width; the parallax layer only draws in high quality. Result: 37-48 fps at 6x CPU throttle.
 23. A photo-derived empty glass was tried and rejected by the owner. Reverted to the drawn empty glass (shorter, wider, red star emblem), which is also used on the select card.
 
 ## Remaining known issues
 
+- **Release APK not built yet.** It needs the production URL (`NEXT_PUBLIC_API_BASE`) and a signing keystore; see README. Only debug builds were produced and tested.
+- **APK updates** mean installing a new APK (signed with the same key). Settings still update over the air.
+- **Dev note:** running `pnpm apk:web` in the same folder as a running `next start` broke that server's chunks. Restart or rebuild the web server after building the APK.
 - **No on-device testing.** Frame rate, touch latency, `desynchronized` canvas, audio output, fullscreen and wake lock are unverified on the Android 11 kiosk.
 - **Heineken asset licence** must be confirmed by the client (ASSETS.md). The proprietary Heineken fonts are not used; PT Sans stands in.
 - **Sounds were picked by name and duration, without listening.** Someone should listen on the kiosk speaker. Swapping a sound means replacing a file in `public/assets/sfx/`.
@@ -143,11 +160,32 @@ All 18 are fixed and re-tested:
 
 ## Performance results
 
-(see the soak section below)
+**Soak** (`pnpm test:soak`, final build, 2026-10-02):
+
+- Setup: 120 bot games back-to-back in one page, at 1080x1920 DPR 1, quality forced to high. A forced GC ran before each sample.
+- Records: 120/120 games stored on the server, 0 duplicates, 0 page errors, 0 client errors. The outbox drained to 0.
+
+| Metric | Game 10 | Game 100 | Game 120 |
+|---|---|---|---|
+| JS heap used (after GC) | 4.48 MB | 4.58 MB | 4.66 MB |
+| DOM nodes | 216 | 214 | 215 |
+| Event listeners | 342 | 342 | 342 |
+| fps (unthrottled) | 60 | 60 | n/a |
+
+Heap growth across 110 games is 0.18 MB. DOM and listeners are flat. There is no leak trend.
+
+**Low-end proxy** (`--grep @perf`): 6x CPU throttle, quality "auto" (the default), headless Chromium with **software** GL (SwiftShader).
+
+- **Star Catcher:** 58-60 fps at the start, then auto quality switched **high → low** and it settled at 39-48 fps.
+- **Crate Stacker** (low): 37-48 fps, after fix 28. It was 27-30 fps before.
+
+These numbers are a CPU-bound worst case: the real kiosk GPU does the rasterising. **Real device frame rate: NOT RUN.**
+
+**Bundle:** client JS is 215 KB gzip in total; admin initial is 197 KB. Assets are 480 KB, precached by the service worker or bundled in the APK. The APK is 4.9 MB.
 
 ## On-device checklist (run before the event)
 
-1. `chrome://version` must be 111 or higher.
+1. Android System WebView (APK) or Chrome (website) must be **version 90 or newer**. The build targets Chrome 90; the stock Android 11 WebView 91 is tested.
 2. Open `/?fps`. Play both games and note the fps and ms readout. **Target: 55-60 fps, never below 45.** If it drops below 45, set Kiosk settings → Graphics quality to Low and re-measure.
 3. Measure touch latency (slow-motion phone video of a finger drag versus the glass) and check that the glass follows without lag.
 4. Check that audio plays after the first tap, at a sensible volume; listen to every effect.
@@ -159,7 +197,7 @@ All 18 are fixed and re-tested:
 
 ## Final recommendation
 
-The software is functionally complete and passes 26 unit tests and 25 end-to-end tests: flows, security, offline, duplicate protection and layout.
+The software is functionally complete. It passes 26 unit tests and 26 end-to-end tests, plus the 120-game soak. The Android app runs fully offline on an Android 11 emulator with the stock WebView.
 
 **It is not yet event-ready.** Three things remain:
 

@@ -150,6 +150,25 @@ Leaderboards are queries over `GameSession`; there is no extra table to keep in 
   - CSV cells are neutralised against formula injection.
 - **Headers:** nosniff, `X-Frame-Options: DENY`, same-origin referrer, restrictive `Permissions-Policy`. A CSP was not added, because Next inline scripts would need nonces; it is listed in QA_REPORT as a known gap.
 
+## Android app (offline kiosk)
+
+```
+APK (Capacitor 8, Android WebView)            Vercel (same backend)
+┌─────────────────────────────────┐  HTTPS   ┌──────────────────────────┐
+│ https://localhost = bundled     │─────────▶│ /api/kiosk/config, sync, │
+│ static export of the kiosk only │  Bearer  │ leaderboard, pair (CORS: │
+│ IndexedDB outbox + ledger       │  token   │ app origin only)         │
+│ Staff screen (offline PIN hash) │          └──────────────────────────┘
+└─────────────────────────────────┘
+```
+
+- **Build.** `BUILD_TARGET=apk next build` produces a static export to `.next-apk`. `pageExtensions: ["tsx"]` leaves out the `route.ts` API handlers. Capacitor copies the export into `android/`, and Gradle builds the APK (`pnpm apk:build`).
+- **Network.** The app calls `NEXT_PUBLIC_API_BASE`. The kiosk routes answer CORS only for `https://localhost` and `capacitor://localhost`. Auth is a Bearer token, never a cookie, so this grants nothing a kiosk could not already do.
+- **Pairing.** `POST /api/kiosk/pair` (admin PIN, same throttle as login) returns a kiosk token. On success, the device stores a PBKDF2-SHA256 (210k) hash of the PIN for offline staff unlock, with a local lockout of 5 tries per 5 min.
+- **Ledger.** A local IndexedDB `ledger` store keeps the last 5,000 finished games, even after they sync, for the staff screen.
+- **Native shell** (`MainActivity`): screen kept on, immersive (system bars hidden), portrait. It can be the device's HOME app for kiosk lock-down. Plain HTTP is allowed only to emulator/dev hosts, and mixed content only in debug builds.
+- **Compatibility.** `browserslist: chrome 90` plus a `roundRect` polyfill, so it runs on Android 11's stock WebView (91).
+
 ## Performance architecture (summary)
 
 - The game loop is outside React. All allocations are pooled. Art is pre-rendered, and the render resolution is capped.
