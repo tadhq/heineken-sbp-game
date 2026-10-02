@@ -47,7 +47,7 @@ Stack:
 
 - **Inactivity:** after `attractDelaySec` without a tap, menus return to attract.
 - **Result timeout:** the result screen returns after 25 s, or 90 s when a prize is shown, so staff can see the code.
-- **Hidden gestures:** holding the brand mark for 3 s opens the staff screen; holding the bottom-right corner (180x180 px) for 1.2 s opens the settings panel (volumes, music/effects on-off, fullscreen). A tap, a swipe through the corner or a finger that moves more than 30 px cancels; a ring fills while holding. Not mounted during play.
+- **Hidden gestures:** holding the brand mark for 3 s opens the staff screen; holding the top-left corner (180x180 px) for 1.2 s opens the settings panel (volumes, music/effects on-off, fullscreen). A tap, a swipe through the corner or a finger that moves more than 30 px cancels; a ring fills while holding. Not mounted during play.
 - **First tap** on attract unlocks audio, plays a confirmation chime and requests fullscreen (the Fullscreen API needs that user activation; the settings panel can toggle it again).
 - **Motion system:** every screen enters with the same 340 ms scale/fade (`animate-screen-in`, keyed by screen); entering a game closes a star-shaped iris over the menu, mounts the canvas underneath, then fades; the countdown starts once the iris has cleared. Surfaces use shared `.panel`, `.tile`, `.btn-primary`, `.btn-secondary` and `.press` classes (globals.css), no backdrop blur.
 - **Result sequence:** score counts up (ticking), locks in at 1.15 s, the prize card (or thank-you panel) reveals at 1.9 s with the music ducked under the prize sting.

@@ -86,7 +86,7 @@ function metal(ctx: CanvasRenderingContext2D, y0: number, y1: number) {
   return g;
 }
 
-function rig(star: Sprite | null): Sprite {
+function rig(star: Sprite | null, plate = true): Sprite {
   return makeSprite(W, RIG_H, (ctx) => {
     // Truss: two chords following the arc, zig-zag webbing between them.
     const top = (x: number) => trussY(x) - 34;
@@ -161,7 +161,9 @@ function rig(star: Sprite | null): Sprite {
       ctx.restore();
     }
 
-    // Centre plate with the official star, lit from below by the strip.
+    // Centre plate with the official star, lit from below by the strip. Menus hang the
+    // logo there instead.
+    if (!plate) return;
     const cx = W / 2;
     const cy = trussY(cx) + 4;
     ctx.globalCompositeOperation = "lighter";
@@ -183,10 +185,10 @@ function rig(star: Sprite | null): Sprite {
   });
 }
 
-export type StageLightArt = { rig: Sprite; cones: Record<ConeTint, Sprite> };
+export type StageLightArt = { rig: Sprite; bareRig: Sprite; cones: Record<ConeTint, Sprite> };
 
 export function makeStageLights(star: Sprite | null): StageLightArt {
-  return { rig: rig(star), cones: { stage: cone("stage"), gold: cone("gold"), red: cone("red") } };
+  return { rig: rig(star), bareRig: rig(null, false), cones: { stage: cone("stage"), gold: cone("gold"), red: cone("red") } };
 }
 
 /**
@@ -198,7 +200,7 @@ export function drawCones(ctx: CanvasRenderingContext2D, art: StageLightArt, t: 
   for (let i = 0; i < FIXTURES.length; i++) {
     const f = FIXTURES[i];
     const sweep = Math.sin(t * (0.35 + energy * 0.5) + i * 1.7) * (0.1 + energy * 0.12);
-    const a = (0.32 + 0.45 * energy) * alpha;
+    const a = (0.6 + 0.4 * energy) * alpha;
     const fx = f.x + Math.sin(f.aim) * -64;
     const fy = trussY(f.x) + 8 + 64 + y;
     const scale = 1 + energy * 0.15;

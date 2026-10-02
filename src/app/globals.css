@@ -56,12 +56,18 @@ body.admin-page {
       inset 0 0 0 2px rgb(220 255 225 / 0.18),
       0 18px 36px -18px rgb(0 20 8 / 0.8);
   }
-  /* Raised glass panel: the one container style for every screen. */
+  /*
+   * Raised panel with a brushed-aluminium bezel (same metal as the stage truss): the one
+   * container style for every screen. The bezel is a border-box gradient, so it costs
+   * nothing per frame.
+   */
   .panel {
-    background: linear-gradient(180deg, rgb(16 74 36 / 0.78) 0%, rgb(5 36 17 / 0.88) 100%);
+    border: 3px solid transparent;
+    background:
+      linear-gradient(180deg, rgb(16 74 36 / 0.86) 0%, rgb(5 36 17 / 0.94) 100%) padding-box,
+      linear-gradient(160deg, rgb(244 247 245 / 0.75), rgb(141 152 143 / 0.45) 28%, rgb(40 54 46 / 0.6) 52%, rgb(201 207 203 / 0.6) 78%, rgb(95 106 99 / 0.5)) border-box;
     box-shadow:
-      inset 0 2px 0 rgb(220 255 225 / 0.14),
-      inset 0 0 0 1.5px rgb(220 255 225 / 0.1),
+      inset 0 2px 0 rgb(220 255 225 / 0.12),
       0 34px 70px -30px rgb(0 22 9 / 0.85);
   }
   /* Inset tile inside a panel (stats, rows). */

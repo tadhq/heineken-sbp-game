@@ -492,7 +492,7 @@ export function Result({
     result.game === "star"
       ? [
           [t.stats.caught, result.stats.caught],
-          [t.stats.golden, result.stats.golden],
+          [t.stats.served, result.stats.served],
           [t.stats.bestCombo, `x${result.stats.bestCombo}`],
         ]
       : [
@@ -555,9 +555,13 @@ export function Result({
                     <span className="motion-safe-only pointer-events-none absolute inset-y-0 left-0 w-1/3 animate-foil bg-gradient-to-r from-transparent via-white/20 to-transparent" aria-hidden />
                     <p className="eyebrow text-[30px] text-gold">{t.youWon}</p>
                     <div className="mt-5 flex items-center justify-center gap-10">
-                      {prize.imageUrl && (
+                      {prize.imageUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element -- admin-configured URL (https or own path only, validated)
                         <img src={prize.imageUrl} alt="" className="h-[200px] w-[200px] rounded-[32px] object-cover shadow-[0_16px_30px_-10px_rgba(0,0,0,0.6)]" draggable={false} />
+                      ) : (
+                        // No prize photo configured: the product itself is the reward visual.
+                        // eslint-disable-next-line @next/next/no-img-element -- supplied multipack photo
+                        <img src="/assets/brand/multipack.webp" alt="" className="h-auto w-[300px] drop-shadow-[0_16px_24px_rgba(0,0,0,0.55)]" draggable={false} />
                       )}
                       <div>
                         <p className="font-display text-[112px] font-bold uppercase leading-[0.92] text-cream">{prize.name}</p>

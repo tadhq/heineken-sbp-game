@@ -1,5 +1,7 @@
 "use client";
 
+import { CONE_H, CONE_W, FIXTURES, trussY } from "@/game/engine/stage-lights";
+import { getHeroGlass, getStageArt } from "../assets";
 
 const STAR_POINTS = Array.from({ length: 10 }, (_, i) => {
   const a = -Math.PI / 2 + (i * Math.PI) / 5;
@@ -25,10 +27,37 @@ export function OfficialStar({ size, className = "", style }: { size: number; cl
   );
 }
 
+/** The game's stage rig over every menu: same truss, fixtures and cones as in play. */
+function StageRig({ lite }: { lite: boolean }) {
+  const art = getStageArt();
+  return (
+    <>
+      {FIXTURES.map((f, i) => (
+        <div
+          key={f.x}
+          className="absolute origin-top"
+          style={{ left: f.x - Math.sin(f.aim) * 64 - CONE_W / 2, top: trussY(f.x) + 8 + 64 - 40, width: CONE_W, height: CONE_H, transform: `rotate(${f.aim}rad)`, opacity: 0.5 }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- baked light cone (data URL) */}
+          <img
+            src={art.cone}
+            alt=""
+            draggable={false}
+            className={`h-full w-full origin-top ${lite ? "" : "motion-safe-only animate-cone-sway"}`}
+            style={{ animationDelay: `${-i * 2.1}s` }}
+          />
+        </div>
+      ))}
+      {/* eslint-disable-next-line @next/next/no-img-element -- baked truss (data URL) */}
+      <img src={art.rig} alt="" draggable={false} className="absolute left-0 w-[1080px] max-w-none" style={{ top: -40 }} />
+    </>
+  );
+}
+
 /**
- * Animated menu background: Heineken's vivid green radial (sampled from heineken.com's
- * brand gradient) with slow light beams and drifting official stars. Only transform and
- * opacity animate (compositor thread). `lite` drops the moving parts.
+ * Menu background: Heineken's vivid green radial (sampled from heineken.com's brand
+ * gradient), the stage rig with its light cones, and drifting official stars. Only
+ * transform and opacity animate (compositor thread). `lite` drops the moving parts.
  */
 /** Per-game light: warm gold spotlight for Star Catcher, cooler deep "warehouse" green for Crate Stacker. */
 const TINT = {
@@ -44,32 +73,15 @@ export function Backdrop({ lite = false, tint }: { lite?: boolean; tint?: keyof 
         style={{ background: "radial-gradient(110% 62% at 50% 36%, #4faa33 0%, #2a8a33 22%, #136528 48%, #0a4a1d 72%, #052a12 100%)" }}
       />
       {tint && <div className="absolute inset-0" style={{ background: TINT[tint] }} />}
+      <StageRig lite={lite} />
       {!lite &&
-        [
-          { left: 140, delay: "0s", opacity: 0.18 },
-          { left: 540, delay: "-3s", opacity: 0.12 },
-          { left: 940, delay: "-6s", opacity: 0.16 },
-        ].map((b, i) => (
-          <div
-            key={i}
-            className="motion-safe-only absolute -top-20 h-[1500px] w-[420px] origin-top animate-beam-sway"
-            style={{
-              left: b.left - 210,
-              opacity: b.opacity,
-              animationDelay: b.delay,
-              background: "linear-gradient(180deg, rgba(240,255,220,0.9), rgba(240,255,220,0) 85%)",
-              clipPath: "polygon(45% 0, 55% 0, 100% 100%, 0 100%)",
-            }}
-          />
-        ))}
-      {!lite &&
-        Array.from({ length: 9 }, (_, i) => (
+        Array.from({ length: 6 }, (_, i) => (
           <div
             key={i}
             className="motion-safe-only absolute -top-24 animate-drift will-change-transform"
-            style={{ left: 60 + ((i * 113) % 960), animationDuration: `${14 + (i % 4) * 5}s`, animationDelay: `${-i * 2.7}s`, opacity: 0.22 + (i % 3) * 0.1 }}
+            style={{ left: 80 + ((i * 173) % 920), animationDuration: `${16 + (i % 3) * 5}s`, animationDelay: `${-i * 3.1}s`, opacity: 0.2 + (i % 3) * 0.08 }}
           >
-            <OfficialStar size={36 + (i % 3) * 14} />
+            <OfficialStar size={34 + (i % 3) * 12} />
           </div>
         ))}
       <div className="absolute inset-x-0 bottom-0 h-[420px]" style={{ background: "linear-gradient(0deg, rgba(5,42,18,0.95), rgba(5,42,18,0))" }} />
@@ -79,12 +91,10 @@ export function Backdrop({ lite = false, tint }: { lite?: boolean; tint?: keyof 
 
 /**
  * Attract-screen hero: the official star large and unobstructed, with the real product
- * (crate and bottle) grounded below it. The star sways in real CSS 3D, a slow light burst
- * turns behind it; all compositor-only.
+ * grounded below it: the supplied multipack and the game's own glass, nearly full.
+ * The star sways in real CSS 3D, a slow light burst turns behind it; all compositor-only.
  */
 export function ProductHero({ lite = false }: { lite?: boolean }) {
-  // Star (760 wide, centre ~420px down) is the backdrop; crate and bottle stand on one floor
-  // line between its legs so they read as sitting inside the star, not pasted over it.
   return (
     <div className="relative h-[780px] w-[1080px]">
       <div
@@ -93,28 +103,25 @@ export function ProductHero({ lite = false }: { lite?: boolean }) {
       />
       <div className="absolute left-1/2 top-[20px] -translate-x-1/2" style={{ perspective: 1800 }}>
         <div className={lite ? "" : "motion-safe-only animate-star-spin"} style={{ transformStyle: "preserve-3d" }}>
-          <OfficialStar size={760} className="max-w-none" style={{ filter: "drop-shadow(0 22px 30px rgba(0,30,10,0.45))" }} />
+          <OfficialStar size={720} className="max-w-none" style={{ filter: "drop-shadow(0 22px 30px rgba(0,30,10,0.45))" }} />
         </div>
       </div>
-      <div
-        className="absolute left-[250px] top-[722px] h-[60px] w-[580px] rounded-[50%]"
-        style={{ background: "radial-gradient(closest-side, rgba(0,25,8,0.55), rgba(0,25,8,0))" }}
-        aria-hidden
-      />
-      {/* eslint-disable-next-line @next/next/no-img-element -- official crate packshot */}
+      {/* Floor: contact shadow and a soft reflection pool under the products. */}
+      <div className="absolute left-[150px] top-[722px] h-[70px] w-[780px] rounded-[50%]" style={{ background: "radial-gradient(closest-side, rgba(0,25,8,0.6), rgba(0,25,8,0))" }} aria-hidden />
+      {/* eslint-disable-next-line @next/next/no-img-element -- supplied multipack photo */}
       <img
-        src="/assets/brand/crate.webp"
-        alt="Heineken krat"
+        src="/assets/brand/multipack.webp"
+        alt="Heineken multipack"
         draggable={false}
-        className="absolute left-[398px] top-[457px] w-[400px] max-w-none"
-        style={{ filter: "drop-shadow(0 18px 22px rgba(0,25,8,0.5))" }}
+        className="absolute left-[130px] top-[392px] w-[600px] max-w-none"
+        style={{ filter: "drop-shadow(0 20px 24px rgba(0,25,8,0.55))" }}
       />
-      {/* eslint-disable-next-line @next/next/no-img-element -- official bottle packshot */}
+      {/* eslint-disable-next-line @next/next/no-img-element -- the game's glass, rendered with beer */}
       <img
-        src="/assets/brand/bottle.webp"
-        alt="Heineken Original"
+        src={getHeroGlass()}
+        alt="Heineken glas"
         draggable={false}
-        className="absolute left-[200px] top-[427px] h-[330px] w-auto max-w-none"
+        className="absolute left-[742px] top-[400px] h-[350px] w-auto max-w-none"
         style={{ filter: "drop-shadow(0 18px 22px rgba(0,25,8,0.5))" }}
       />
     </div>

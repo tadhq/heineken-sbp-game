@@ -59,6 +59,8 @@ export function GameView({ game, config, labels, quality, autoQuality, running, 
         : undefined,
     });
     runnerRef.current = runner;
+    // QA hook (`?qa`): step frames by hand, e.g. `__qa.step(2)` from the console.
+    if (params.has("qa")) (window as unknown as { __qa?: unknown }).__qa = { step: (s: number) => runner.step(s), game: instance };
     resultRef.current = () => instance.result();
     runner.renderStatic();
     return () => {

@@ -209,7 +209,7 @@ export class BeerGlass {
       c.globalAlpha = 1;
     }
     // Foam head riding the surface; thicker when the glass is full.
-    const foamH = (6 + 16 * Math.min(1, this.shown * 1.6)) * (1 + this.crown * 0.9);
+    const foamH = (9 + 22 * Math.min(1, this.shown * 1.6)) * (1 + this.crown * 0.8);
     c.beginPath();
     for (let i = 0; i <= SEGMENTS; i++) c.lineTo((i / SEGMENTS) * w, surf(i) - foamH - Math.sin(this.phase * 1.3 + i * 1.7) * 2.2);
     for (let i = SEGMENTS; i >= 0; i--) c.lineTo((i / SEGMENTS) * w, surf(i) + 3);

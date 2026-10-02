@@ -28,10 +28,11 @@ const DX = 34; // oblique depth of the procedural crate: top face shifts rightâ€
 const DY = 30; // â€¦and up
 const GROUND_Y = 1660;
 const HOVER = 70;
-const MOVER_SCREEN_Y = 900;
-const SLOT_GRADE = 360;
-const SLOT_MULT = 470;
-const SLOT_BANNER = 600;
+// Text slots sit between the rig and the hovering crate, never on the crate.
+const MOVER_SCREEN_Y = 1060;
+const SLOT_GRADE = 430;
+const SLOT_MULT = 515;
+const SLOT_BANNER = 625;
 const MIN_X = 70;
 const MAX_X = W - 70 - DX;
 const OUTRO_S = 2.8;
@@ -597,7 +598,7 @@ export class CrateStacker implements Game<CrateResult> {
     this.unstable = unstable;
     // Beside the stack, not on it: the next crate hovers right over the placed one.
     const px = sx + (placed.w * this.zoom) / 2 + 120 < W - 60 ? sx + (placed.w * this.zoom) / 2 + 90 : sx - (placed.w * this.zoom) / 2 - 90;
-    this.popups.show(`+${pts}`, px, Math.max(380, sy + 20), P.cream, 58);
+    this.popups.show(`+${pts}`, px, Math.max(700, sy + 20), P.cream, 58);
 
     if (placed.w < c.minWidth) {
       this.wobV += 18;

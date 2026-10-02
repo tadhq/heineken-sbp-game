@@ -18,6 +18,7 @@ export function getSprites(): SharedSprites {
     builtWithImages = !!img;
     icons = null;
     glassIcon = null;
+    heroGlass = null;
     stageArt = null;
   }
   return sprites;
@@ -80,6 +81,13 @@ function filledGlass(level: number): HTMLCanvasElement {
   }).canvas;
 }
 
+let heroGlass: string | null = null;
+/** A nearly full glass for the attract hero. */
+export function getHeroGlass(): string {
+  heroGlass ??= filledGlass(0.9).toDataURL("image/png");
+  return heroGlass;
+}
+
 let glassIcon: string | null = null;
 /** The game's own glass, half full, for the menu card. */
 export function getGlassIcon(): string {
@@ -91,7 +99,7 @@ let stageArt: { rig: string; cone: string } | null = null;
 /** Stage rig and one light cone as images for the menus (same art as in the games). */
 export function getStageArt() {
   const s = getSprites();
-  stageArt ??= { rig: s.lights.rig.canvas.toDataURL("image/png"), cone: s.lights.cones.stage.canvas.toDataURL("image/png") };
+  stageArt ??= { rig: s.lights.bareRig.canvas.toDataURL("image/png"), cone: s.lights.cones.stage.canvas.toDataURL("image/png") };
   return stageArt;
 }
 

@@ -22,7 +22,7 @@ test("@shots kiosk screens at 1080x1920", async ({ page }) => {
     await waitScreen(page, "attract");
     await page.waitForTimeout(1500);
     await page.screenshot({ path: `${OUT}/01-attract.png` });
-    // Hidden settings: hold the bottom-right corner.
+    // Hidden settings: hold the top-left corner.
     const spot = page.locator('[data-hotspot="settings"]');
     await spot.hover({ position: { x: 60, y: 60 } });
     await page.mouse.down();

@@ -100,6 +100,23 @@ export class Runner<R> {
     this.game.render(this.ctx);
   }
 
+  /**
+   * QA (`?qa`): advance `seconds` of game time in fixed 1/60 s steps and draw one frame,
+   * without requestAnimationFrame. Lets visual checks run in a backgrounded browser window,
+   * where rAF is paused. Same update/render path as tick().
+   */
+  step(seconds: number) {
+    if (this.done) return;
+    const n = Math.round(seconds * 60);
+    for (let i = 0; i < n && !this.game.finished; i++) {
+      if (this.opts.bot) this.game.autopilot?.(1 / 60);
+      this.game.update(1 / 60);
+    }
+    if (this.game.finished) return this.finish();
+    view.s = this.scale;
+    this.game.render(this.ctx);
+  }
+
   stop() {
     this.running = false;
     cancelAnimationFrame(this.raf);

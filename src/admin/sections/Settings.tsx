@@ -162,7 +162,7 @@ export function KioskSettings({ vc, onSaved }: { vc: VersionedConfig; onSaved: (
         }
       >
         <p className="mb-3 text-sm text-silver">
-          Default mix for every kiosk. Staff can adjust a single kiosk from its hidden settings (hold the bottom-right corner for about a second); that change stays on the device
+          Default mix for every kiosk. Staff can adjust a single kiosk from its hidden settings (hold the top-left corner for about a second); that change stays on the device
           until you save new defaults here. Switching music or effects off above also locks them off on the kiosk.
         </p>
         <div className="grid gap-3 sm:grid-cols-3">

@@ -583,7 +583,7 @@ export class StarCatcher implements Game<StarResult> {
         if (perfect) this.popups.show(this.labels.perfect, this.glassX, this.rimY - 150, P.gold, 58, 0.7, 90);
         if (newMult > this.mult) {
           this.multPop = 1;
-          this.popups.show(`${this.labels.combo} x${newMult}`, W / 2, 560, P.bright, 116, 1.2, 70);
+          this.popups.show(`${this.labels.combo} x${newMult}`, W / 2, 470, P.bright, 104, 1.1, 60);
           this.particles.burst(this.glassX, this.rimY - 80, 24, 2, 800, { life: 0.8, up: 400 });
           this.juice.ring(this.sprites.glowGreen, this.glassX, this.rimY - 60, 1.4, 0.5, 0.7);
           audio.play("combo", 1 + newMult * 0.05);
@@ -642,7 +642,7 @@ export class StarCatcher implements Game<StarResult> {
       this.fullT = STAR.fullHold;
       this.bounce = 0.3;
       this.flash(P.gold, 0.18);
-      this.showBanner(this.labels.fullGlass, 1.1);
+      this.showBanner(this.labels.fullGlass, STAR.fullHold + 0.1);
       this.particles.burst(this.glassX, this.rimY - 10, 30, 9, 520, { life: 0.9, up: 420, gravity: 500 });
       this.juice.ring(this.sprites.glowGold, this.glassX, this.rimY - 40, 1.8, 0.55, 0.85);
       audio.play("full");
@@ -662,9 +662,10 @@ export class StarCatcher implements Game<StarResult> {
     this.dropIn = 0;
     this.fill = 0;
     this.beer.shown = 0;
+    this.beer.crown = 0;
     this.edge(true, 0.8);
-    this.popups.show(`${this.labels.bonus} x${this.bonusMult}`, W / 2, 640, P.gold, 128, 1.3, 70);
-    this.popups.show(`${this.labels.served} +${pts}`, W / 2, 770, P.cream, 60, 1.1, 60);
+    this.popups.show(`${this.labels.bonus} x${this.bonusMult}`, W / 2, 660, P.gold, 128, 1.3, 70);
+    this.popups.show(`${this.labels.served} +${pts}`, W / 2, 800, P.cream, 60, 1.1, 60);
     for (let i = 0; i < 3; i++) this.juice.fly(this.sprites.particles[7], this.glassX + (i - 1) * 50, this.rimY, SCORE_AT.x, SCORE_AT.y, 1.3, 0.5 + i * 0.06, () => (this.scoreBump = 1));
     audio.play("serve");
     audio.play("bonus", this.bonusMult >= 3 ? 1.19 : 1);

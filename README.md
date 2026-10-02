@@ -50,7 +50,7 @@ URL flags for QA: `?fps` shows frame times, and `?bot` makes the games play them
 3. Go to **Device & security**, choose **Register this device as kiosk**, and name it. Results now upload automatically.
 4. Lock the device to Chrome in portrait with your MDM (lock task / dedicated device), keep the screen on, and disable system gestures.
 5. Tap the attract screen once: this goes fullscreen and enables sound.
-6. Staff settings on the kiosk itself: press and hold the bottom-right corner for about a second. Adjust master, music and effects volume, switch music or effects off, or toggle fullscreen. These stay on that device until an admin saves new audio defaults.
+6. Staff settings on the kiosk itself: press and hold the top-left corner for about a second. Adjust master, music and effects volume, switch music or effects off, or toggle fullscreen. These stay on that device until an admin saves new audio defaults.
 
 The kiosk keeps working without internet. Results wait on the device and upload when the connection returns.
 

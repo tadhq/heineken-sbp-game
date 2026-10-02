@@ -58,7 +58,7 @@ const ExpandIcon = ({ exit }: { exit?: boolean }) => (
 const HOLD_MS = 1200;
 
 /**
- * Invisible bottom-right corner for staff: press and HOLD 1.2 s to open settings. A tap,
+ * Invisible top-left corner for staff: press and HOLD 1.2 s to open settings. A tap,
  * a swipe through the corner or a finger that wanders off cancels, so players brushing
  * the corner never open it. A ring fills while holding, which is how staff discover it.
  * Not mounted during play.
@@ -75,7 +75,7 @@ export function SettingsHotspot({ onOpen }: { onOpen: () => void }) {
   useEffect(() => cancel, []);
   return (
     <div
-      className="absolute bottom-0 right-0 z-40 h-[180px] w-[180px]"
+      className="absolute left-0 top-0 z-40 h-[180px] w-[180px]"
       data-hotspot="settings"
       onPointerDown={(e) => {
         // Keep the tap from also reaching the screen below (e.g. "tap to start").
@@ -96,7 +96,7 @@ export function SettingsHotspot({ onOpen }: { onOpen: () => void }) {
       onContextMenu={(e) => e.preventDefault()}
     >
       {holding && (
-        <svg viewBox="0 0 100 100" className="absolute bottom-[40px] right-[40px] h-[100px] w-[100px] -rotate-90 animate-fade-in" aria-hidden>
+        <svg viewBox="0 0 100 100" className="absolute left-[40px] top-[40px] h-[100px] w-[100px] -rotate-90 animate-fade-in" aria-hidden>
           <circle cx="50" cy="50" r="45" fill="rgb(3 19 10 / 0.5)" stroke="rgb(220 255 225 / 0.2)" strokeWidth="6" />
           <circle cx="50" cy="50" r="45" fill="none" stroke="#f3f6f1" strokeWidth="6" strokeDasharray="283" className="animate-hold-ring" strokeLinecap="round" />
         </svg>
@@ -187,7 +187,11 @@ export function SettingsPanel({ t, prefs, musicAllowed, sfxAllowed, onChange, on
         {/* Brand hairline: the one red accent on this panel. */}
         <div className="absolute inset-x-24 top-0 h-[4px] rounded-b-full bg-star" />
         <div className="flex items-center justify-between">
-          <h2 className="font-display text-[64px] font-bold uppercase leading-none text-cream">{s.title}</h2>
+          <div className="flex items-center gap-6">
+            {/* eslint-disable-next-line @next/next/no-img-element -- official star */}
+            <img src="/assets/brand/star.png" alt="" className="h-[72px] w-auto drop-shadow-[0_8px_16px_rgba(0,20,8,0.5)]" draggable={false} />
+            <h2 className="font-display text-[64px] font-bold uppercase leading-none text-cream">{s.title}</h2>
+          </div>
           <button type="button" onClick={close} aria-label={s.close} className="press flex h-[96px] w-[96px] items-center justify-center rounded-full tile text-cream">
             <svg viewBox="0 0 24 24" className="h-[44px] w-[44px]" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" aria-hidden>
               <path d="M6 6l12 12M18 6L6 18" />

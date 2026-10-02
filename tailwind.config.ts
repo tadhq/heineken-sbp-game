@@ -26,6 +26,7 @@ export default {
       },
       keyframes: {
         "beam-sway": { "0%,100%": { transform: "rotate(-6deg)" }, "50%": { transform: "rotate(6deg)" } },
+        "cone-sway": { "0%,100%": { transform: "rotate(-5deg)" }, "50%": { transform: "rotate(5deg)" } },
         // Sways instead of spinning fully: the face stays visible, the extruded edge shows depth.
         "star-spin": { "0%,100%": { transform: "rotateY(-16deg) rotateZ(-2deg)" }, "50%": { transform: "rotateY(16deg) rotateZ(2deg)" } },
         float: { "0%,100%": { transform: "translateY(0)" }, "50%": { transform: "translateY(-24px)" } },
@@ -57,6 +58,7 @@ export default {
       },
       animation: {
         "beam-sway": "beam-sway 9s ease-in-out infinite",
+        "cone-sway": "cone-sway 8s ease-in-out infinite",
         "star-spin": "star-spin 6s ease-in-out infinite",
         float: "float 5s ease-in-out infinite",
         "cta-beat": "cta-beat 1.6s ease-in-out infinite",
