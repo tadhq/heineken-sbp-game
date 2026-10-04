@@ -7,7 +7,7 @@
  * are cached too.
  */
 // Bump when files under /assets change in place (same path, new content).
-const CACHE = "hk-shell-v7";
+const CACHE = "hk-shell-v8";
 const SHELL = [
   "/",
   "/manifest.webmanifest",

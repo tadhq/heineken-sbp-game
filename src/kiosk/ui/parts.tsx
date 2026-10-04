@@ -70,7 +70,7 @@ export function Backdrop({ lite = false, tint }: { lite?: boolean; tint?: keyof 
     <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
       <div
         className="absolute inset-0"
-        style={{ background: "radial-gradient(110% 62% at 50% 36%, #4faa33 0%, #2a8a33 22%, #136528 48%, #0a4a1d 72%, #052a12 100%)" }}
+        style={{ background: "radial-gradient(110% 52% at 50% 30%, #2f8a2e 0%, #1c7029 20%, #0e5222 42%, #073818 64%, #03200c 100%)" }}
       />
       {tint && <div className="absolute inset-0" style={{ background: TINT[tint] }} />}
       <StageRig lite={lite} />
@@ -84,7 +84,7 @@ export function Backdrop({ lite = false, tint }: { lite?: boolean; tint?: keyof 
             <OfficialStar size={34 + (i % 3) * 12} />
           </div>
         ))}
-      <div className="absolute inset-x-0 bottom-0 h-[420px]" style={{ background: "linear-gradient(0deg, rgba(5,42,18,0.95), rgba(5,42,18,0))" }} />
+      <div className="absolute inset-x-0 bottom-0 h-[1200px]" style={{ background: "linear-gradient(0deg, rgba(3,28,11,0.98) 0%, rgba(3,28,11,0.85) 45%, rgba(3,28,11,0) 100%)" }} />
     </div>
   );
 }
@@ -93,13 +93,13 @@ export function Backdrop({ lite = false, tint }: { lite?: boolean; tint?: keyof 
 export function ProductHero() {
   return (
     <div className="relative h-[780px] w-[1080px]">
-      <div className="absolute left-1/2 top-[150px] -translate-x-1/2">
+      <div className="absolute left-1/2 top-[110px] -translate-x-1/2">
         {/* eslint-disable-next-line @next/next/no-img-element -- supplied multipack photo */}
         <img
           src="/assets/brand/multipack.webp"
           alt="Heineken multipack"
           draggable={false}
-          className="w-[900px] max-w-none"
+          className="w-[1040px] max-w-none"
           style={{ filter: "drop-shadow(0 6px 10px rgba(0,25,8,0.45))" }}
         />
       </div>

@@ -260,24 +260,35 @@ export class CrateStacker implements Game<CrateResult> {
     const groupH = H / groups;
     const perGroup = Math.max(1, Math.floor((groupH - pallet) / face));
     const step = (groupH - pallet) / perGroup;
+    const crateDrawH = ch * (step / face);
     // Muted and dark: the background stacks must never read like the player's crates.
-    ctx.filter = `brightness(${light}) saturate(${sat})${blur ? ` blur(${blur}px)` : ""}`;
+    // The filter runs once per small tile, never per draw on the full-screen layer: a
+    // software canvas (Android WebView) takes seconds per filtered full-layer draw.
+    const filter = `brightness(${light}) saturate(${sat})${blur ? ` blur(${blur}px)` : ""}`;
+    const pad = Math.ceil(blur * 3);
+    const crateTile = makeSprite(crateW + pad * 2, crateDrawH + pad * 2, (t) => {
+      t.filter = filter;
+      t.drawImage(img, pad, pad, crateW, crateDrawH);
+    });
+    const palletTile = makeSprite(crateW * 1.08 + pad * 2, pallet + pad * 2, (t) => {
+      t.filter = filter;
+      t.translate(pad + crateW * 0.04, pad);
+      t.fillStyle = "#6b4a22";
+      t.fillRect(-crateW * 0.04, 0, crateW * 1.08, pallet * 0.45);
+      t.fillStyle = "#3d2a12";
+      for (const bx of [0, 0.46, 0.92]) t.fillRect(crateW * bx - crateW * 0.02, pallet * 0.45, crateW * 0.1, pallet * 0.55);
+    });
     for (const x of cols) {
       for (let gI = 0; gI < groups; gI++) {
         const base = (gI + 1) * groupH;
-        // Pallet under each group: deck boards over blocks.
-        ctx.fillStyle = "#6b4a22";
-        ctx.fillRect(x - crateW * 0.04, base - pallet, crateW * 1.08, pallet * 0.45);
-        ctx.fillStyle = "#3d2a12";
-        for (const bx of [0, 0.46, 0.92]) ctx.fillRect(x + crateW * bx - crateW * 0.02, base - pallet * 0.55, crateW * 0.1, pallet * 0.55);
+        ctx.drawImage(palletTile.canvas, x - crateW * 0.04 - pad, base - pallet - pad);
         // Crates bottom-up: each one covers the open top of the crate below.
         for (let c = 0; c < perGroup; c++) {
           const bottom = base - pallet - c * step;
-          ctx.drawImage(img, x, bottom - ch * (step / face), crateW, ch * (step / face));
+          ctx.drawImage(crateTile.canvas, x - pad, bottom - crateDrawH - pad);
         }
       }
     }
-    ctx.filter = "none";
     // Depth haze over the layer.
     const haze = ctx.createLinearGradient(0, 0, W, 0);
     const a = blur > 1 ? 0.6 : 0.22;
