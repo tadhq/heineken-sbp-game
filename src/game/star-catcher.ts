@@ -188,7 +188,7 @@ export class StarCatcher implements Game<StarResult> {
     this.edgeGold = makeEdgeGlow("rgba(255,201,74,0.6)");
   }
 
-  /** Deep environment: brand-green hall, back bar with multipacks, the counter. Baked. */
+  /** Deep environment: brand-green hall and the counter. Baked. */
   private paintBackground(ctx: CanvasRenderingContext2D, withLights: boolean) {
     const s = this.sprites;
     brandBackdrop(ctx, W / 2, H * 0.3);
@@ -203,23 +203,8 @@ export class StarCatcher implements Game<StarResult> {
     ctx.drawImage(st.canvas, W / 2 - st.w * 3.2, H * 0.4 - st.h * 3.2, st.w * 6.4, st.h * 6.4);
     ctx.globalAlpha = 1;
     bokeh(ctx, 26, FLOOR_Y - 260);
-    // Back-bar shelf with multipacks, out of focus behind the counter: depth plus brand.
+    // Haze toward the counter so the wall sits behind the action.
     const shelfY = FLOOR_Y - 170;
-    if (s.multipack) {
-      const mp = s.multipack;
-      const mw = 300;
-      const mh = (mp.naturalHeight / mp.naturalWidth) * mw;
-      ctx.filter = "blur(2.5px) brightness(0.55) saturate(0.85)";
-      for (const x of [-40, 250, 540, 830]) ctx.drawImage(mp, x, shelfY - mh + 8, mw, mh);
-      ctx.filter = "none";
-    }
-    const shelf = ctx.createLinearGradient(0, shelfY, 0, shelfY + 22);
-    shelf.addColorStop(0, "#5d6a63");
-    shelf.addColorStop(0.2, "#2a3530");
-    shelf.addColorStop(1, "#0b1a12");
-    ctx.fillStyle = shelf;
-    ctx.fillRect(0, shelfY, W, 22);
-    // Haze over the back bar so it sits behind the action.
     const haze = ctx.createLinearGradient(0, shelfY - 260, 0, FLOOR_Y);
     haze.addColorStop(0, "rgba(6,50,24,0)");
     haze.addColorStop(1, "rgba(6,50,24,0.75)");
